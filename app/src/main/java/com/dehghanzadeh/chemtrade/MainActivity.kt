@@ -8,22 +8,9 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AdminPanelSettings
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,37 +22,27 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 
 private enum class OfferStatus(val title: String) {
-    Pending("در انتظار بررسی"),
-    Approved("تأیید شده"),
-    Rejected("رد شده")
-}
-
-private enum class PriceType(val title: String) {
-    Official("رسمی"),
-    Market("غیررسمی / بازار آزاد"),
-    Both("هر دو قیمت")
+    Pending("در انتظار بررسی"), Approved("تأیید شده"), Rejected("رد شده")
 }
 
 private data class ChemicalOffer(
     val id: Int,
     val name: String,
     val category: String,
-    val officialPrice: String?,
-    val marketPrice: String?,
+    val officialPrice: String,
+    val marketPrice: String,
     val unit: String,
     val supplier: String,
     val stock: String,
     val deliveryPlace: String,
     val deliveryTime: String,
     val phone: String,
-    val status: OfferStatus,
+    var status: OfferStatus,
     val isChemTrade: Boolean = false,
-    val marginPercent: Int = 0,
-    val badge: String = ""
+    val marginPercent: Int = 0
 )
 
 private val ChemBlue = Color(0xFF123B5D)
-private val ChemBlueLight = Color(0xFFEAF3F8)
 private val ChemGold = Color(0xFFD89A1D)
 private val ChemGreen = Color(0xFF1F7A5A)
 private val ChemRed = Color(0xFFB3261E)
@@ -79,47 +56,36 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun ChemTradeApp() {
-    val scheme = lightColorScheme(
+    val colors = lightColorScheme(
         primary = ChemBlue,
         secondary = ChemGold,
         tertiary = ChemGreen,
-        primaryContainer = ChemBlueLight,
+        primaryContainer = Color(0xFFE7F1F7),
         surface = Color(0xFFFCFCFC)
     )
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-        MaterialTheme(colorScheme = scheme) { ChemTradeHome() }
+        MaterialTheme(colorScheme = colors) { ChemTradeHome() }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChemTradeHome() {
+    var tab by remember { mutableIntStateOf(0) }
     var query by remember { mutableStateOf("") }
-    var selectedTab by remember { mutableIntStateOf(0) }
-    var selectedOffer by remember { mutableStateOf<ChemicalOffer?>(null) }
-    var showOfferForm by remember { mutableStateOf(false) }
-    var showAdminLogin by remember { mutableStateOf(false) }
-    var adminLoggedIn by remember { mutableStateOf(false) }
-    var adminPin by remember { mutableStateOf("") }
-    var loginError by remember { mutableStateOf(false) }
-    var requestSent by remember { mutableStateOf(false) }
+    var admin by remember { mutableStateOf(false) }
+    var showLogin by remember { mutableStateOf(false) }
+    var showForm by remember { mutableStateOf(false) }
+    var selected by remember { mutableStateOf<ChemicalOffer?>(null) }
     var supportPhone by remember { mutableStateOf("02100000000") }
     var defaultMargin by remember { mutableIntStateOf(3) }
-
-    var offers by remember {
-        mutableStateOf(
-            listOf(
-                ChemicalOffer(1, "مونو اتانول آمین (MEA)", "آمین‌ها و افزودنی‌ها", "۱۲۵,۰۰۰ تومان", "۱۲۸,۵۰۰ تومان", "کیلوگرم", "بازرگانی دهقان‌زاده", "بشکه ۲۰۰ کیلویی", "تهران، شورآباد یا حواله از درب پتروشیمی", "هماهنگی تلفنی", "02100000000", OfferStatus.Approved, true, 3, "ویژه ChemTrade"),
-                ChemicalOffer(2, "اسید استیک", "اسیدها", "۷۷,۰۰۰ تومان", "۷۹,۰۰۰ تومان", "کیلوگرم", "تأمین‌کننده تأییدشده", "موجود", "انبار تهران", "۱ تا ۲ روز کاری", "02100000000", OfferStatus.Approved, false, 2, "تأییدشده"),
-                ChemicalOffer(3, "متانول", "حلال‌ها", "۴۲,۰۰۰ تومان", "۴۳,۵۰۰ تومان", "کیلوگرم", "تأمین‌کننده تأییدشده", "موجود", "عسلویه / تحویل توافقی", "تحویل فوری", "02100000000", OfferStatus.Approved, false, 2, "فوری"),
-                ChemicalOffer(4, "اوره صنعتی", "مواد اولیه کود", "۲۵,۰۰۰ تومان", "۲۶,۰۰۰ تومان", "کیلوگرم", "تأمین‌کننده جدید", "حداقل سفارش ۱ تن", "انبار فروشنده", "پس از تأیید ادمین", "02100000000", OfferStatus.Pending, false, 0, "در انتظار")
-            )
+    val offers = remember {
+        mutableStateListOf(
+            ChemicalOffer(1, "مونو اتانول آمین (MEA)", "آمین‌ها و افزودنی‌ها", "۱۲۵,۰۰۰ تومان", "۱۲۸,۵۰۰ تومان", "کیلوگرم", "بازرگانی دهقان‌زاده", "بشکه ۲۰۰ کیلویی", "تهران، شورآباد یا حواله از درب پتروشیمی", "هماهنگی تلفنی", "02100000000", OfferStatus.Approved, true, 3),
+            ChemicalOffer(2, "اسید استیک", "اسیدها", "۷۷,۰۰۰ تومان", "۷۹,۰۰۰ تومان", "کیلوگرم", "تأمین‌کننده تأییدشده", "موجود", "انبار تهران", "۱ تا ۲ روز کاری", "02100000000", OfferStatus.Approved),
+            ChemicalOffer(3, "متانول", "حلال‌ها", "۴۲,۰۰۰ تومان", "۴۳,۵۰۰ تومان", "کیلوگرم", "تأمین‌کننده تأییدشده", "موجود", "عسلویه / تحویل توافقی", "تحویل فوری", "02100000000", OfferStatus.Approved),
+            ChemicalOffer(4, "اوره صنعتی", "مواد اولیه کود", "۲۵,۰۰۰ تومان", "۲۶,۰۰۰ تومان", "کیلوگرم", "تأمین‌کننده جدید", "حداقل سفارش ۱ تن", "انبار فروشنده", "پس از تأیید ادمین", "02100000000", OfferStatus.Pending)
         )
-    }
-
-    val visibleOffers = offers.filter {
-        it.status == OfferStatus.Approved &&
-            (it.name.contains(query, true) || it.category.contains(query, true) || it.supplier.contains(query, true))
     }
 
     Scaffold(
@@ -132,104 +98,51 @@ private fun ChemTradeHome() {
                     }
                 },
                 actions = {
-                    IconButton(onClick = { selectedTab = 3 }) {
-                        Icon(Icons.Default.Settings, contentDescription = "تنظیمات")
-                    }
+                    IconButton(onClick = { tab = 3 }) { Icon(Icons.Default.Settings, "تنظیمات") }
                 }
             )
         },
         bottomBar = {
             NavigationBar {
-                NavigationBarItem(selected = selectedTab == 0, onClick = { selectedTab = 0 }, icon = { Icon(Icons.Default.ShoppingCart, null) }, label = { Text("بازار") })
-                NavigationBarItem(selected = selectedTab == 1, onClick = { selectedTab = 1 }, icon = { Icon(Icons.Default.Inventory2, null) }, label = { Text("ثبت آگهی") })
-                NavigationBarItem(selected = selectedTab == 2, onClick = { selectedTab = 2 }, icon = { Icon(Icons.Default.AccountCircle, null) }, label = { Text("حساب من") })
-                NavigationBarItem(selected = selectedTab == 3, onClick = { selectedTab = 3 }, icon = { Icon(Icons.Default.Settings, null) }, label = { Text("تنظیمات") })
+                NavigationBarItem(tab == 0, { tab = 0 }, { Icon(Icons.Default.Store, null) }, { Text("بازار") })
+                NavigationBarItem(tab == 1, { tab = 1 }, { Icon(Icons.Default.Add, null) }, { Text("ثبت آگهی") })
+                NavigationBarItem(tab == 2, { tab = 2 }, { Icon(Icons.Default.AccountCircle, null) }, { Text("حساب") })
+                NavigationBarItem(tab == 3, { tab = 3 }, { Icon(Icons.Default.Settings, null) }, { Text("تنظیمات") })
             }
         }
     ) { padding ->
-        when (selectedTab) {
-            0 -> MarketScreen(Modifier.padding(padding), query, { query = it }, visibleOffers, { selectedOffer = it })
-            1 -> SupplyScreen(Modifier.padding(padding), { showOfferForm = true })
-            2 -> AccountScreen(Modifier.padding(padding), requestSent, { requestSent = true }, supportPhone)
-            else -> SettingsScreen(
-                Modifier.padding(padding),
-                adminLoggedIn,
-                { showAdminLogin = true },
-                { adminLoggedIn = false },
-                { selectedTab = 4 }
-            )
-        }
-
-        if (selectedTab == 4 && adminLoggedIn) {
-            AdminScreen(
-                offers = offers,
-                defaultMargin = defaultMargin,
-                supportPhone = supportPhone,
-                onUpdateOffer = { updated -> offers = offers.map { if (it.id == updated.id) updated else it } },
-                onDelete = { id -> offers = offers.filterNot { it.id == id } },
-                onDefaultMarginChange = { defaultMargin = it },
-                onPhoneChange = { supportPhone = it },
-                onAddOwnOffer = { showOfferForm = true }
+        when (tab) {
+            0 -> MarketScreen(Modifier.padding(padding), offers, query, { query = it }, { selected = it })
+            1 -> SupplyScreen(Modifier.padding(padding), { showForm = true })
+            2 -> AccountScreen(Modifier.padding(padding), supportPhone)
+            3 -> SettingsScreen(Modifier.padding(padding), admin, { showLogin = true }, { admin = false }, { tab = 4 })
+            4 -> if (admin) AdminScreen(
+                Modifier.padding(padding), offers, supportPhone, defaultMargin,
+                { supportPhone = it }, { defaultMargin = it }, { showForm = true }, { tab = 0 }
             )
         }
     }
 
-    selectedOffer?.let { offer ->
-        OfferDetailsDialog(
-            offer = offer,
-            supportPhone = supportPhone,
-            onDismiss = { selectedOffer = null },
-            onRequest = { requestSent = true; selectedOffer = null }
+    selected?.let { OfferDialog(it, supportPhone, { selected = null }) }
+
+    if (showLogin) {
+        AdminLoginDialog(
+            onDismiss = { showLogin = false },
+            onSuccess = { admin = true; showLogin = false; tab = 4 }
         )
     }
 
-    if (showOfferForm) {
+    if (showForm) {
         OfferFormDialog(
-            adminMode = adminLoggedIn && selectedTab == 4,
-            onDismiss = { showOfferForm = false },
-            onSubmit = { newOffer ->
-                offers = offers + newOffer.copy(
-                    id = (offers.maxOfOrNull { it.id } ?: 0) + 1,
-                    status = if (adminLoggedIn && selectedTab == 4) OfferStatus.Approved else OfferStatus.Pending,
-                    isChemTrade = adminLoggedIn && selectedTab == 4,
-                    phone = if (adminLoggedIn && selectedTab == 4) supportPhone else newOffer.phone,
-                    marginPercent = if (adminLoggedIn && selectedTab == 4) defaultMargin else 0,
-                    badge = if (adminLoggedIn && selectedTab == 4) "ویژه ChemTrade" else "در انتظار بررسی"
-                )
-                showOfferForm = false
+            adminMode = admin && tab == 4,
+            supportPhone = supportPhone,
+            defaultMargin = defaultMargin,
+            onDismiss = { showForm = false },
+            onSubmit = { offer ->
+                offers.add(offer.copy(id = (offers.maxOfOrNull { it.id } ?: 0) + 1))
+                showForm = false
+                tab = if (admin) 4 else 0
             }
-        )
-    }
-
-    if (showAdminLogin) {
-        AlertDialog(
-            onDismissRequest = { showAdminLogin = false },
-            icon = { Icon(Icons.Default.AdminPanelSettings, null, tint = ChemBlue) },
-            title = { Text("ورود به پنل مدیریت") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("این ورود فعلاً برای نسخه آزمایشی است. رمز پیش‌فرض: 1234")
-                    OutlinedTextField(
-                        value = adminPin,
-                        onValueChange = { adminPin = it; loginError = false },
-                        label = { Text("رمز مدیریت") },
-                        singleLine = true,
-                        isError = loginError
-                    )
-                    if (loginError) Text("رمز صحیح نیست.", color = ChemRed)
-                }
-            },
-            confirmButton = {
-                Button(onClick = {
-                    if (adminPin == "1234") {
-                        adminLoggedIn = true
-                        adminPin = ""
-                        showAdminLogin = false
-                        selectedTab = 4
-                    } else loginError = true
-                }) { Text("ورود") }
-            },
-            dismissButton = { TextButton(onClick = { showAdminLogin = false }) { Text("انصراف") } }
         )
     }
 }
@@ -237,138 +150,109 @@ private fun ChemTradeHome() {
 @Composable
 private fun MarketScreen(
     modifier: Modifier,
-    query: String,
-    onQueryChange: (String) -> Unit,
     offers: List<ChemicalOffer>,
+    query: String,
+    onQuery: (String) -> Unit,
     onSelect: (ChemicalOffer) -> Unit
 ) {
+    val visible = offers.filter {
+        it.status == OfferStatus.Approved && (it.name.contains(query, true) || it.category.contains(query, true) || it.supplier.contains(query, true))
+    }
     LazyColumn(modifier = modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Card(colors = CardDefaults.cardColors(containerColor = ChemBlue)) {
                 Column(Modifier.padding(18.dp)) {
-                    Text("بازار تخصصی مواد اولیه", style = MaterialTheme.typography.headlineSmall, color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("بازار تخصصی مواد اولیه", color = Color.White, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(6.dp))
-                    Text("قیمت رسمی و قیمت بازار، زمان و مکان تحویل و ارتباط مستقیم تلفنی", color = Color.White.copy(alpha = .9f))
+                    Text("قیمت رسمی و غیررسمی، زمان و مکان تحویل و ارتباط مستقیم", color = Color.White)
                 }
             }
             Spacer(Modifier.height(12.dp))
-            OutlinedTextField(value = query, onValueChange = onQueryChange, modifier = Modifier.fillMaxWidth(), singleLine = true, leadingIcon = { Icon(Icons.Default.Search, null) }, label = { Text("جستجوی ماده، دسته یا فروشنده") })
-            Spacer(Modifier.height(12.dp))
-            Text("⭐ آگهی‌های مستقیم ChemTrade", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            OutlinedTextField(
+                value = query, onValueChange = onQuery, modifier = Modifier.fillMaxWidth(), singleLine = true,
+                leadingIcon = { Icon(Icons.Default.Search, null) }, label = { Text("جستجوی ماده یا فروشنده") }
+            )
+            Spacer(Modifier.height(10.dp))
         }
-        items(offers.filter { it.isChemTrade }) { OfferCard(it, onClick = { onSelect(it) }) }
+        if (visible.any { it.isChemTrade }) {
+            item { Text("⭐ آگهی‌های مستقیم ChemTrade", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
+            items(visible.filter { it.isChemTrade }) { OfferCard(it, { onSelect(it) }) }
+        }
         item { Text("جدیدترین آگهی‌های تأییدشده", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
-        items(offers.filterNot { it.isChemTrade }) { OfferCard(it, onClick = { onSelect(it) }) }
-        if (offers.isEmpty()) item { Text("آگهی تأییدشده‌ای پیدا نشد.") }
+        items(visible.filterNot { it.isChemTrade }) { OfferCard(it, { onSelect(it) }) }
+        if (visible.isEmpty()) item { Text("آگهی تأییدشده‌ای پیدا نشد.") }
     }
 }
 
 @Composable
 private fun OfferCard(offer: ChemicalOffer, onClick: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth(), onClick = onClick) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column(Modifier.weight(1f)) {
-                    Text(offer.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(offer.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                     Text(offer.category, style = MaterialTheme.typography.bodySmall)
                 }
-                AssistChip(onClick = onClick, label = { Text(offer.badge.ifBlank { offer.status.title }) }, leadingIcon = { Icon(if (offer.isChemTrade) Icons.Default.Verified else Icons.Default.CheckCircle, null, modifier = Modifier.size(16.dp)) })
+                AssistChip(onClick = onClick, label = { Text(if (offer.isChemTrade) "ویژه ChemTrade" else "تأییدشده") })
             }
-            PriceBlock(offer)
+            if (offer.officialPrice.isNotBlank()) Text("قیمت رسمی: ${offer.officialPrice} / ${offer.unit}", color = ChemGreen, fontWeight = FontWeight.Bold)
+            if (offer.marketPrice.isNotBlank()) Text("قیمت بازار: ${offer.marketPrice} / ${offer.unit}", color = ChemBlue, fontWeight = FontWeight.Bold)
             InfoLine(Icons.Default.LocationOn, "تحویل: ${offer.deliveryPlace}")
             InfoLine(Icons.Default.Schedule, "زمان تحویل: ${offer.deliveryTime}")
             Text("${offer.stock} • ${offer.supplier}", style = MaterialTheme.typography.bodySmall)
-            Button(onClick = onClick, modifier = Modifier.fillMaxWidth()) { Text("مشاهده جزئیات و تماس") }
+            Button(onClick = onClick, modifier = Modifier.fillMaxWidth()) { Text("جزئیات و تماس") }
         }
-    }
-}
-
-@Composable
-private fun PriceBlock(offer: ChemicalOffer) {
-    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-        offer.officialPrice?.let { Text("قیمت رسمی: $it / ${offer.unit}", color = ChemGreen, fontWeight = FontWeight.Bold) }
-        offer.marketPrice?.let { Text("قیمت بازار: $it / ${offer.unit}", color = ChemBlue, fontWeight = FontWeight.Bold) }
     }
 }
 
 @Composable
 private fun InfoLine(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, modifier = Modifier.size(17.dp), tint = ChemGold)
-        Spacer(Modifier.width(5.dp))
+        Icon(icon, null, tint = ChemGold, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(6.dp))
         Text(text, style = MaterialTheme.typography.bodySmall)
     }
 }
 
 @Composable
-private fun SupplyScreen(modifier: Modifier, onAddOffer: () -> Unit) {
-    LazyColumn(modifier = modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item {
-            Text("ثبت آگهی تأمین", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text("هر آگهی ابتدا در وضعیت «در انتظار بررسی» قرار می‌گیرد و بدون تأیید مدیر منتشر نمی‌شود.")
-        }
-        item {
-            Card(colors = CardDefaults.cardColors(containerColor = ChemBlueLight)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("اطلاعات قابل ثبت", fontWeight = FontWeight.Bold)
-                    Text("• نام ماده و دسته‌بندی\n• قیمت رسمی، غیررسمی یا هر دو\n• مقدار و موجودی\n• مکان تحویل\n• زمان تحویل\n• شماره تماس")
-                }
-            }
-        }
-        item {
-            Button(onClick = onAddOffer, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Default.Add, null); Spacer(Modifier.width(8.dp)); Text("ثبت آگهی برای بررسی")
-            }
-        }
+private fun SupplyScreen(modifier: Modifier, onAdd: () -> Unit) {
+    Column(modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Icon(Icons.Default.Inventory2, null, tint = ChemBlue, modifier = Modifier.size(48.dp))
+        Text("ثبت آگهی فروش", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text("آگهی شما ابتدا برای بررسی مدیر ارسال می‌شود و فقط بعد از تأیید منتشر خواهد شد.")
+        Button(onClick = onAdd, modifier = Modifier.fillMaxWidth()) { Text("ثبت آگهی جدید") }
     }
 }
 
 @Composable
-private fun AccountScreen(modifier: Modifier, requestSent: Boolean, onRequest: () -> Unit, supportPhone: String) {
-    val context = LocalContext.current
-    LazyColumn(modifier = modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item {
-            Text("حساب من", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text("نسخه آزمایشی ChemTrade")
-        }
-        item {
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("ارتباط سریع با ChemTrade", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("برای قیمت لحظه‌ای، موجودی و شرایط معامله با تیم ما تماس بگیرید.")
-                    Button(onClick = { dial(context, supportPhone) }, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Default.Phone, null); Spacer(Modifier.width(8.dp)); Text("تماس تلفنی")
-                    }
-                }
-            }
-        }
-        item {
-            if (requestSent) Text("درخواست شما در نسخه آزمایشی ثبت شد.")
-            else OutlinedButton(onClick = onRequest, modifier = Modifier.fillMaxWidth()) { Text("ثبت درخواست آزمایشی") }
-        }
+private fun AccountScreen(modifier: Modifier, phone: String) {
+    Column(modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Text("حساب کاربری", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text("برای ثبت و مدیریت آگهی‌ها، حساب کاربری کامل در نسخه آنلاین فعال خواهد شد.")
+        Button(onClick = { }, modifier = Modifier.fillMaxWidth()) { Text("درخواست همکاری") }
+        OutlinedButton(onClick = { }, modifier = Modifier.fillMaxWidth()) { Text("تماس با ChemTrade: $phone") }
     }
 }
 
 @Composable
 private fun SettingsScreen(
     modifier: Modifier,
-    adminLoggedIn: Boolean,
-    onAdminLogin: () -> Unit,
-    onAdminLogout: () -> Unit,
-    onOpenAdmin: () -> Unit
+    admin: Boolean,
+    onLogin: () -> Unit,
+    onLogout: () -> Unit,
+    onAdmin: () -> Unit
 ) {
-    LazyColumn(modifier = modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { Text("تنظیمات", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
-        item {
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Default.AdminPanelSettings, null, tint = ChemBlue)
-                    Text("پنل مدیریت", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text(if (adminLoggedIn) "شما با دسترسی مدیر وارد شده‌اید." else "برای تأیید آگهی‌ها، تعیین سود و مدیریت بازار وارد شوید.")
-                    if (adminLoggedIn) {
-                        Button(onClick = onOpenAdmin, modifier = Modifier.fillMaxWidth()) { Text("ورود به داشبورد مدیریت") }
-                        TextButton(onClick = onAdminLogout, modifier = Modifier.fillMaxWidth()) { Text("خروج از مدیریت") }
-                    } else Button(onClick = onAdminLogin, modifier = Modifier.fillMaxWidth()) { Text("ورود مدیر") }
+    Column(modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("تنظیمات", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Card {
+            Column(Modifier.padding(16.dp)) {
+                Text("پنل مدیریت", fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(8.dp))
+                if (admin) {
+                    Button(onClick = onAdmin, modifier = Modifier.fillMaxWidth()) { Text("ورود به داشبورد مدیریت") }
+                    TextButton(onClick = onLogout) { Text("خروج از مدیریت") }
+                } else {
+                    Button(onClick = onLogin, modifier = Modifier.fillMaxWidth()) { Text("ورود مدیر") }
                 }
             }
         }
@@ -377,161 +261,166 @@ private fun SettingsScreen(
 
 @Composable
 private fun AdminScreen(
-    offers: List<ChemicalOffer>,
-    defaultMargin: Int,
-    supportPhone: String,
-    onUpdateOffer: (ChemicalOffer) -> Unit,
-    onDelete: (Int) -> Unit,
-    onDefaultMarginChange: (Int) -> Unit,
-    onPhoneChange: (String) -> Unit,
-    onAddOwnOffer: () -> Unit
+    modifier: Modifier,
+    offers: MutableList<ChemicalOffer>,
+    phone: String,
+    margin: Int,
+    onPhone: (String) -> Unit,
+    onMargin: (Int) -> Unit,
+    onAdd: () -> Unit,
+    onBack: () -> Unit
 ) {
-    var phoneDraft by remember(supportPhone) { mutableStateOf(supportPhone) }
-    LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    var phoneEdit by remember(phone) { mutableStateOf(phone) }
+    var marginEdit by remember(margin) { mutableStateOf(margin.toString()) }
+    LazyColumn(modifier = modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
-            Card(colors = CardDefaults.cardColors(containerColor = ChemBlue)) {
-                Column(Modifier.padding(18.dp)) {
-                    Text("پنل مدیریت ChemTrade", style = MaterialTheme.typography.headlineSmall, color = Color.White, fontWeight = FontWeight.Bold)
-                    Text("کنترل کامل انتشار آگهی، قیمت و سود", color = Color.White.copy(alpha = .9f))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("پنل مدیریت ChemTrade", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                IconButton(onClick = onBack) { Icon(Icons.Default.Close, null) }
+            }
+            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFEAF3F8))) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("تنظیمات مدیریت", fontWeight = FontWeight.Bold)
+                    OutlinedTextField(phoneEdit, { phoneEdit = it }, label = { Text("شماره تماس ChemTrade") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(marginEdit, { marginEdit = it.filter { c -> c.isDigit() } }, label = { Text("سود پیش‌فرض درصدی") }, modifier = Modifier.fillMaxWidth())
+                    Button(onClick = {
+                        onPhone(phoneEdit)
+                        onMargin(marginEdit.toIntOrNull() ?: 0)
+                    }) { Text("ذخیره تنظیمات") }
                 }
             }
+            Button(onClick = onAdd, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(8.dp)); Text("ثبت آگهی مستقیم ChemTrade") }
+            Spacer(Modifier.height(4.dp))
+            Text("آگهی‌های در انتظار بررسی", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                MetricCard("در انتظار", offers.count { it.status == OfferStatus.Pending }.toString(), Modifier.weight(1f))
-                MetricCard("فعال", offers.count { it.status == OfferStatus.Approved }.toString(), Modifier.weight(1f))
-                MetricCard("آگهی خودم", offers.count { it.isChemTrade }.toString(), Modifier.weight(1f))
-            }
+        items(offers.filter { it.status == OfferStatus.Pending }, key = { it.id }) { offer ->
+            AdminOfferCard(offer, offers)
         }
-        item {
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("تنظیمات کنترل بازار", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("سود پیش‌فرض ChemTrade: $defaultMargin٪")
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { onDefaultMarginChange((defaultMargin - 1).coerceAtLeast(0)) }) { Text("−") }
-                        OutlinedButton(onClick = { onDefaultMarginChange((defaultMargin + 1).coerceAtMost(30)) }) { Text("+") }
-                    }
-                    OutlinedTextField(value = phoneDraft, onValueChange = { phoneDraft = it }, label = { Text("شماره تماس ChemTrade") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    Button(onClick = { onPhoneChange(phoneDraft) }) { Text("ذخیره شماره تماس") }
-                }
-            }
-        }
-        item { Text("آگهی‌های در انتظار بررسی", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
-        items(offers.filter { it.status == OfferStatus.Pending }) { offer ->
-            AdminOfferCard(offer, onApprove = { onUpdateOffer(offer.copy(status = OfferStatus.Approved, marginPercent = defaultMargin, badge = "تأییدشده")) }, onReject = { onUpdateOffer(offer.copy(status = OfferStatus.Rejected, badge = "رد شده")) }, onDelete = { onDelete(offer.id) })
-        }
-        if (offers.none { it.status == OfferStatus.Pending }) item { Text("آگهی در انتظاری وجود ندارد.") }
-        item { Text("آگهی‌های فعال", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
-        items(offers.filter { it.status == OfferStatus.Approved }) { offer ->
-            AdminOfferCard(offer, onApprove = { onUpdateOffer(offer.copy(marginPercent = (offer.marginPercent + 1).coerceAtMost(30))) }, onReject = { onUpdateOffer(offer.copy(status = OfferStatus.Rejected, badge = "متوقف شده")) }, onDelete = { onDelete(offer.id) })
-        }
-        item {
-            Button(onClick = onAddOwnOffer, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(8.dp)); Text("ثبت آگهی مستقیم ChemTrade") }
+        item { Text("سایر آگهی‌ها", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
+        items(offers.filter { it.status != OfferStatus.Pending }, key = { it.id }) { offer ->
+            AdminOfferCard(offer, offers)
         }
     }
 }
 
 @Composable
-private fun MetricCard(title: String, value: String, modifier: Modifier) {
-    Card(modifier) { Column(Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) { Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = ChemBlue); Text(title, style = MaterialTheme.typography.labelSmall) } }
-}
-
-@Composable
-private fun AdminOfferCard(offer: ChemicalOffer, onApprove: () -> Unit, onReject: () -> Unit, onDelete: () -> Unit) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            Text(offer.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+private fun AdminOfferCard(offer: ChemicalOffer, offers: MutableList<ChemicalOffer>) {
+    Card {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(offer.name, fontWeight = FontWeight.Bold)
+            Text("وضعیت: ${offer.status.title}")
             Text("فروشنده: ${offer.supplier}")
-            PriceBlock(offer)
-            Text("مکان: ${offer.deliveryPlace}")
-            Text("زمان: ${offer.deliveryTime}")
-            Text("سود ChemTrade: ${offer.marginPercent}٪", color = ChemGold, fontWeight = FontWeight.Bold)
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-                Button(onClick = onApprove, modifier = Modifier.weight(1f)) { Text(if (offer.status == OfferStatus.Pending) "تأیید" else "+۱٪ سود") }
-                OutlinedButton(onClick = onReject, modifier = Modifier.weight(1f)) { Text("رد / توقف") }
-                IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, null, tint = ChemRed) }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (offer.status == OfferStatus.Pending) {
+                    Button(onClick = {
+                        val i = offers.indexOfFirst { it.id == offer.id }
+                        if (i >= 0) offers[i] = offer.copy(status = OfferStatus.Approved)
+                    }) { Text("تأیید") }
+                    OutlinedButton(onClick = {
+                        val i = offers.indexOfFirst { it.id == offer.id }
+                        if (i >= 0) offers[i] = offer.copy(status = OfferStatus.Rejected)
+                    }) { Text("رد") }
+                }
+                IconButton(onClick = { offers.removeAll { it.id == offer.id } }) { Icon(Icons.Default.Delete, "حذف", tint = ChemRed) }
             }
         }
     }
 }
 
 @Composable
-private fun OfferDetailsDialog(offer: ChemicalOffer, supportPhone: String, onDismiss: () -> Unit, onRequest: () -> Unit) {
+private fun AdminLoginDialog(onDismiss: () -> Unit, onSuccess: () -> Unit) {
+    var pin by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("ورود به پنل مدیریت") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("نسخه آزمایشی - رمز پیش‌فرض: 1234")
+                OutlinedTextField(pin, { pin = it; error = false }, label = { Text("رمز مدیریت") }, singleLine = true, isError = error)
+                if (error) Text("رمز صحیح نیست.", color = ChemRed)
+            }
+        },
+        confirmButton = {
+            Button(onClick = { if (pin == "1234") onSuccess() else error = true }) { Text("ورود") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } }
+    )
+}
+
+@Composable
+private fun OfferDialog(offer: ChemicalOffer, supportPhone: String, onDismiss: () -> Unit) {
     val context = LocalContext.current
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(offer.name) },
         text = {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                item { Text(offer.category) }
-                item { PriceBlock(offer) }
-                item { InfoLine(Icons.Default.LocationOn, "مکان تحویل: ${offer.deliveryPlace}") }
-                item { InfoLine(Icons.Default.Schedule, "زمان تحویل: ${offer.deliveryTime}") }
-                item { Text("موجودی: ${offer.stock}") }
-                item { Text("فروشنده: ${offer.supplier}") }
-                item { if (offer.isChemTrade) Text("این آگهی مستقیم ChemTrade است.", color = ChemGreen) }
+            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                if (offer.officialPrice.isNotBlank()) Text("قیمت رسمی: ${offer.officialPrice}")
+                if (offer.marketPrice.isNotBlank()) Text("قیمت بازار: ${offer.marketPrice}")
+                Text("واحد: ${offer.unit}")
+                Text("موجودی: ${offer.stock}")
+                Text("مکان تحویل: ${offer.deliveryPlace}")
+                Text("زمان تحویل: ${offer.deliveryTime}")
+                Text("فروشنده: ${offer.supplier}")
             }
         },
         confirmButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                TextButton(onClick = { dial(context, if (offer.isChemTrade) supportPhone else offer.phone) }) { Icon(Icons.Default.Phone, null); Spacer(Modifier.width(4.dp)); Text("تماس") }
-                Button(onClick = onRequest) { Text("درخواست خرید") }
-            }
+            Button(onClick = {
+                val number = if (offer.isChemTrade) supportPhone else offer.phone
+                context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number")))
+            }) { Icon(Icons.Default.Phone, null); Spacer(Modifier.width(6.dp)); Text("تماس") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("بستن") } }
     )
 }
 
 @Composable
-private fun OfferFormDialog(adminMode: Boolean, onDismiss: () -> Unit, onSubmit: (ChemicalOffer) -> Unit) {
+private fun OfferFormDialog(
+    adminMode: Boolean,
+    supportPhone: String,
+    defaultMargin: Int,
+    onDismiss: () -> Unit,
+    onSubmit: (ChemicalOffer) -> Unit
+) {
     var name by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf("مواد شیمیایی") }
-    var priceType by remember { mutableStateOf(PriceType.Both) }
-    var officialPrice by remember { mutableStateOf("") }
-    var marketPrice by remember { mutableStateOf("") }
+    var category by remember { mutableStateOf("") }
+    var official by remember { mutableStateOf("") }
+    var market by remember { mutableStateOf("") }
     var unit by remember { mutableStateOf("کیلوگرم") }
-    var supplier by remember { mutableStateOf("") }
+    var supplier by remember { mutableStateOf(if (adminMode) "ChemTrade" else "") }
     var stock by remember { mutableStateOf("") }
     var place by remember { mutableStateOf("") }
     var time by remember { mutableStateOf("") }
-    var phone by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf(if (adminMode) supportPhone else "") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (adminMode) "ثبت آگهی مستقیم ChemTrade" else "ثبت آگهی برای بررسی") },
+        title = { Text(if (adminMode) "ثبت آگهی مستقیم ChemTrade" else "ثبت آگهی فروش") },
         text = {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 item { OutlinedTextField(name, { name = it }, label = { Text("نام ماده") }, modifier = Modifier.fillMaxWidth()) }
                 item { OutlinedTextField(category, { category = it }, label = { Text("دسته‌بندی") }, modifier = Modifier.fillMaxWidth()) }
-                item { Text("نوع قیمت") }
-                item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        PriceType.entries.forEach { type -> FilterChip(selected = priceType == type, onClick = { priceType = type }, label = { Text(type.title) }) }
-                    }
-                }
-                if (priceType == PriceType.Official || priceType == PriceType.Both) item { OutlinedTextField(officialPrice, { officialPrice = it }, label = { Text("قیمت رسمی") }, modifier = Modifier.fillMaxWidth()) }
-                if (priceType == PriceType.Market || priceType == PriceType.Both) item { OutlinedTextField(marketPrice, { marketPrice = it }, label = { Text("قیمت غیررسمی / بازار") }, modifier = Modifier.fillMaxWidth()) }
+                item { OutlinedTextField(official, { official = it }, label = { Text("قیمت رسمی (اختیاری)") }, modifier = Modifier.fillMaxWidth()) }
+                item { OutlinedTextField(market, { market = it }, label = { Text("قیمت غیررسمی / بازار (اختیاری)") }, modifier = Modifier.fillMaxWidth()) }
                 item { OutlinedTextField(unit, { unit = it }, label = { Text("واحد") }, modifier = Modifier.fillMaxWidth()) }
-                item { OutlinedTextField(supplier, { supplier = it }, label = { Text("نام فروشنده / شرکت") }, modifier = Modifier.fillMaxWidth()) }
+                item { OutlinedTextField(supplier, { supplier = it }, label = { Text("نام فروشنده") }, modifier = Modifier.fillMaxWidth()) }
                 item { OutlinedTextField(stock, { stock = it }, label = { Text("موجودی / حداقل سفارش") }, modifier = Modifier.fillMaxWidth()) }
                 item { OutlinedTextField(place, { place = it }, label = { Text("مکان تحویل") }, modifier = Modifier.fillMaxWidth()) }
                 item { OutlinedTextField(time, { time = it }, label = { Text("زمان تحویل") }, modifier = Modifier.fillMaxWidth()) }
-                if (!adminMode) item { OutlinedTextField(phone, { phone = it }, label = { Text("شماره تماس") }, modifier = Modifier.fillMaxWidth()) }
+                item { OutlinedTextField(phone, { phone = it }, label = { Text("شماره تماس") }, modifier = Modifier.fillMaxWidth()) }
+                if (adminMode) item { Text("سود پیش‌فرض ChemTrade: $defaultMargin٪") }
             }
         },
         confirmButton = {
             Button(onClick = {
-                if (name.isNotBlank() && place.isNotBlank() && time.isNotBlank()) {
-                    onSubmit(ChemicalOffer(0, name, category, officialPrice.takeIf { it.isNotBlank() }, marketPrice.takeIf { it.isNotBlank() }, unit, supplier.ifBlank { "تأمین‌کننده" }, stock.ifBlank { "توافقی" }, place, time, phone, OfferStatus.Pending))
+                if (name.isNotBlank() && (official.isNotBlank() || market.isNotBlank()) && place.isNotBlank()) {
+                    onSubmit(
+                        ChemicalOffer(0, name, category.ifBlank { "سایر" }, official, market, unit, supplier.ifBlank { "فروشنده" }, stock.ifBlank { "نامشخص" }, place, time.ifBlank { "توافقی" }, phone, if (adminMode) OfferStatus.Approved else OfferStatus.Pending, adminMode, if (adminMode) defaultMargin else 0)
+                    )
                 }
             }) { Text("ثبت") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } }
     )
-}
-
-private fun dial(context: android.content.Context, phone: String) {
-    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))
-    context.startActivity(intent)
 }
