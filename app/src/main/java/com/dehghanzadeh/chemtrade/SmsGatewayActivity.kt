@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -36,11 +37,11 @@ private val GatewayRed = Color(0xFFB3261E)
 
 @Composable
 private fun SmsGatewayScreen() {
+    val context = LocalContext.current
     var phone by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
     var status by remember { mutableStateOf("سیم‌کارت خط مدیریت را در همین گوشی قرار دهید.") }
     var statusColor by remember { mutableStateOf(GatewayNavy) }
-    var pendingSend by remember { mutableStateOf(false) }
 
     fun generateCode() {
         code = SecureRandom().nextInt(900000).plus(100000).toString()
@@ -95,8 +96,8 @@ private fun SmsGatewayScreen() {
                         OutlinedButton(onClick = { generateCode() }, modifier = Modifier.fillMaxWidth()) { Text("ساخت کد آزمایشی") }
                         Button(
                             onClick = {
-                                if (ContextCompat.checkSelfPermission(this@SmsGatewayScreen, Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED) sendOtp()
-                                else { pendingSend = true; permissionLauncher.launch(Manifest.permission.SEND_SMS) }
+                                if (ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED) sendOtp()
+                                else permissionLauncher.launch(Manifest.permission.SEND_SMS)
                             },
                             modifier = Modifier.fillMaxWidth().height(54.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = GatewayNavy)
