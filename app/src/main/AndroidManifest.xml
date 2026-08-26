@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
         android:theme="@style/Theme.ChemTrade"
-        android:label="ChemTrade"
+        android:label="ChemLink"
         android:icon="@drawable/ic_chemtrade_logo"
         android:roundIcon="@drawable/ic_chemtrade_logo"
         android:allowBackup="false"
