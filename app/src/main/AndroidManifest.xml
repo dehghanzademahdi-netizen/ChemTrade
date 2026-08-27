@@ -1,5 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-permission android:name="android.permission.SEND_SMS" />
+
     <application
         android:theme="@style/Theme.ChemTrade"
         android:label="ChemLink"
@@ -8,8 +10,12 @@
         android:allowBackup="false"
         android:supportsRtl="true">
 
+        <activity android:name=".SmsGatewayActivity" android:exported="false" />
+
+        <activity android:name=".MainActivity" android:exported="false" />
+
         <activity
-            android:name=".MainActivity"
+            android:name=".EntryActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
