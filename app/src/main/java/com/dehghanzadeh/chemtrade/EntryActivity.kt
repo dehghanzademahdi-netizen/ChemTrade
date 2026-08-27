@@ -2,6 +2,7 @@ package com.dehghanzadeh.chemtrade
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -18,7 +19,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
@@ -61,6 +61,15 @@ private fun EntryFlow() {
     var expectedCode by rememberSaveable { mutableStateOf("") }
     var error by rememberSaveable { mutableStateOf("") }
 
+    fun sendVerificationSms(targetPhone: String, verificationCode: String) {
+        val message = "ChemLink\nکد تایید شما: $verificationCode\nاین کد را در اختیار دیگران قرار ندهید."
+        val intent = Intent(Intent.ACTION_SENDTO).apply {
+            data = Uri.parse("smsto:$targetPhone")
+            putExtra("sms_body", message)
+        }
+        context.startActivity(intent)
+    }
+
     Surface(modifier = Modifier.fillMaxSize(), color = EntryCream) {
         when (step) {
             0 -> WelcomeScreen { step = 1 }
@@ -73,6 +82,7 @@ private fun EntryFlow() {
                     } else {
                         error = ""
                         expectedCode = SecureRandom().nextInt(900000).plus(100000).toString()
+                        sendVerificationSms(phone, expectedCode)
                         step = 2
                     }
                 },
@@ -97,6 +107,11 @@ private fun EntryFlow() {
                     } else {
                         error = "کد واردشده صحیح نیست."
                     }
+                },
+                onResend = {
+                    expectedCode = SecureRandom().nextInt(900000).plus(100000).toString()
+                    error = ""
+                    sendVerificationSms(phone, expectedCode)
                 },
                 onBack = { code = ""; error = ""; step = 1 },
                 error = error
@@ -167,7 +182,7 @@ private fun ServiceLoginScreen(phone: String, onPhoneChange: (String) -> Unit, o
 }
 
 @Composable
-private fun VerifyCodeScreen(phone: String, code: String, onCodeChange: (String) -> Unit, onVerify: () -> Unit, onBack: () -> Unit, error: String) {
+private fun VerifyCodeScreen(phone: String, code: String, onCodeChange: (String) -> Unit, onVerify: () -> Unit, onResend: () -> Unit, onBack: () -> Unit, error: String) {
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -177,12 +192,13 @@ private fun VerifyCodeScreen(phone: String, code: String, onCodeChange: (String)
         Spacer(Modifier.height(24.dp))
         Text("تأیید شماره موبایل", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = EntryNavy)
         Spacer(Modifier.height(10.dp))
-        Text("کد تأیید برای شماره $phone ارسال می‌شود. کد را وارد کنید.", textAlign = TextAlign.Center, color = EntryNavy)
+        Text("پیامک آماده ارسال شد. در برنامه پیامک روی ارسال بزنید، سپس کد را اینجا وارد کنید.", textAlign = TextAlign.Center, color = EntryNavy)
         Spacer(Modifier.height(22.dp))
         OutlinedTextField(value = code, onValueChange = onCodeChange, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("کد ۶ رقمی") }, placeholder = { Text("------") })
         if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
         Spacer(Modifier.height(18.dp))
         Button(onClick = onVerify, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = EntryNavy)) { Text("تأیید و ورود") }
+        TextButton(onClick = onResend) { Text("ارسال مجدد کد", color = EntryGold) }
         TextButton(onClick = onBack) { Text("ویرایش شماره موبایل", color = EntryGold) }
     }
 }
