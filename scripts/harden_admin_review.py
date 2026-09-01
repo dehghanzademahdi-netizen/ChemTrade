@@ -34,8 +34,8 @@ s = s.replace(
     'selectedOffer?.let{offer->OfferDialog(offer,supportPhone,currentUser?.phone==offer.ownerPhone,{selectedOffer=null},{editingOffer=offer;selectedOffer=null;showOfferForm=true})}\n    adminReviewTarget?.let{offer->AdminReviewDialog(offer,defaultMargin,{adminReviewTarget=null}){approved->saveOffer(approved);adminReviewTarget=null}}\n'
 )
 
-old_sig = '''@Composable private fun AdminScreen(modifier:Modifier,offers:MutableList<ChemicalOffer>,phone:String,margin:Int,onPhone:(String)->Unit,onMargin:(Int)->Unit,onAdd:()->Unit,onBack:()->Unit,onSave:(ChemicalOffer)->Unit,onDelete:(ChemicalOffer)->Unit,onLogout:()->Unit)'''
-new_sig = '''@Composable private fun AdminScreen(modifier:Modifier,offers:MutableList<ChemicalOffer>,phone:String,margin:Int,onPhone:(String)->Unit,onMargin:(Int)->Unit,onAdd:()->Unit,onBack:()->Unit,onSave:(ChemicalOffer)->Unit,onDelete:(ChemicalOffer)->Unit,onReview:(ChemicalOffer)->Unit,onLogout:()->Unit)'''
+old_sig = """@Composable private fun AdminScreen(modifier:Modifier,offers:MutableList<ChemicalOffer>,phone:String,margin:Int,onPhone:(String)->Unit,onMargin:(Int)->Unit,onAdd:()->Unit,onBack:()->Unit,onSave:(ChemicalOffer)->Unit,onDelete:(ChemicalOffer)->Unit,onLogout:()->Unit)"""
+new_sig = """@Composable private fun AdminScreen(modifier:Modifier,offers:MutableList<ChemicalOffer>,phone:String,margin:Int,onPhone:(String)->Unit,onMargin:(Int)->Unit,onAdd:()->Unit,onBack:()->Unit,onSave:(ChemicalOffer)->Unit,onDelete:(ChemicalOffer)->Unit,onReview:(ChemicalOffer)->Unit,onLogout:()->Unit)"""
 s = s.replace(old_sig, new_sig)
 
 # Pending cards: open the safe review screen first; do not directly launch the old dialog.
@@ -108,4 +108,3 @@ s = s.replace(marker, review + marker, 1)
 
 path.write_text(s, encoding="utf-8")
 print("Admin review hardening applied")
-'''
