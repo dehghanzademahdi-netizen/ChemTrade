@@ -31,6 +31,9 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
+      - name: Harden admin review flow
+        run: python3 scripts/harden_admin_review.py
+
       - name: Build debug APK
         run: |
           set -o pipefail
