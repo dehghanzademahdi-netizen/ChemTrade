@@ -34,6 +34,9 @@ jobs:
       - name: Harden admin review flow
         run: python3 scripts/harden_admin_review.py
 
+      - name: Fix admin review crash and add customer photo picker
+        run: python3 scripts/fix_admin_review_and_photo.py
+
       - name: Build debug APK
         run: |
           set -o pipefail
