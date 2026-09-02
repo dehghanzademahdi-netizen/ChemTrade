@@ -2,9 +2,9 @@ package com.dehghanzadeh.chemtrade
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
-import android.graphics.BitmapFactory
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -25,6 +25,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import org.json.JSONArray
@@ -33,114 +34,504 @@ import java.security.MessageDigest
 
 private enum class Status { PENDING, APPROVED, REJECTED }
 private enum class MarginType { PERCENT, TOMAN }
+
 private data class Offer(
-    val id:Int=0,
-    val name:String="",
-    val official:String="",
-    val market:String="",
-    val place:String="",
-    val time:String="",
-    val supplier:String="",
-    val phone:String="",
-    val owner:String="",
-    val description:String="",
-    val photo:String="",
-    val status:Status=Status.PENDING,
-    val reason:String="",
-    val marginType:MarginType=MarginType.PERCENT,
-    val margin:Double=0.0,
-    val publishedOfficial:String="",
-    val publishedMarket:String=""
+    val id: Int = 0,
+    val name: String = "",
+    val official: String = "",
+    val market: String = "",
+    val place: String = "",
+    val time: String = "",
+    val supplier: String = "",
+    val phone: String = "",
+    val owner: String = "",
+    val description: String = "",
+    val photo: String = "",
+    val status: Status = Status.PENDING,
+    val reason: String = "",
+    val marginType: MarginType = MarginType.PERCENT,
+    val margin: Double = 0.0,
+    val publishedOfficial: String = "",
+    val publishedMarket: String = ""
 )
 
-private data class UserAccount(val phone:String,val type:String,val name:String="",val company:String="")
+private data class UserAccount(val phone: String, val type: String, val name: String = "", val company: String = "")
 
-private val Navy=Color(0xFF0B1F33)
-private val Gold=Color(0xFFC8A24A)
-private val Cream=Color(0xFFFBF6EE)
-private const val ADMIN_HASH="a1fb4e703a9ef1fa4936801721ff285a97ac85330856674412e054892afe6972"
+private val Navy = Color(0xFF0B1F33)
+private val Gold = Color(0xFFC8A24A)
+private val Cream = Color(0xFFFBF6EE)
+private const val ADMIN_HASH = "a1fb4e703a9ef1fa4936801721ff285a97ac85330856674412e054892afe6972"
 
-private fun digits(s:String)=s.map{c->when(c){in '۰'..'۹'->('0'.code+(c.code-'۰'.code)).toChar();in '٠'..'٩'->('0'.code+(c.code-'٠'.code)).toChar();else->c}}.joinToString("")
-private fun hash(s:String)=MessageDigest.getInstance("SHA-256").digest(s.toByteArray()).joinToString(""){ "%02x".format(it) }
-private fun num(s:String)=digits(s).filter(Char::isDigit).toLongOrNull()
-private fun money(n:Long)=String.format("%,d تومان",n)
+private fun digits(value: String): String = value.map { c ->
+    when (c) {
+        in '۰'..'۹' -> ('0'.code + c.code - '۰'.code).toChar()
+        in '٠'..'٩' -> ('0'.code + c.code - '٠'.code).toChar()
+        else -> c
+    }
+}.joinToString("")
 
-class MainActivity:ComponentActivity(){ override fun onCreate(state:Bundle?){super.onCreate(state);setContent{ChemLinkApp()}} }
+private fun hash(value: String): String = MessageDigest.getInstance("SHA-256").digest(value.toByteArray()).joinToString("") { "%02x".format(it) }
+private fun parseMoney(value: String): Long? = digits(value).filter(Char::isDigit).toLongOrNull()
+private fun money(value: Long): String = String.format("%,d تومان", value)
 
-@Composable private fun ChemLinkApp(){
-    val colors=lightColorScheme(primary=Navy,onPrimary=Color.White,secondary=Gold,onSecondary=Navy,background=Cream,onBackground=Navy,surface=Cream,onSurface=Navy)
-    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl){MaterialTheme(colorScheme=colors){MainScreen()}}
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent { ChemTradeApp() }
+    }
+}
+
+@Composable
+private fun ChemTradeApp() {
+    val scheme = lightColorScheme(
+        primary = Navy,
+        onPrimary = Color.White,
+        secondary = Gold,
+        onSecondary = Navy,
+        background = Cream,
+        onBackground = Navy,
+        surface = Color.White,
+        onSurface = Navy
+    )
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+        MaterialTheme(colorScheme = scheme) { MainScreen() }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable private fun MainScreen(){
-    val ctx=LocalContext.current
-    val prefs=remember{ctx.getSharedPreferences("chemlink",Context.MODE_PRIVATE)}
-    var admin by remember{mutableStateOf(prefs.getBoolean("adminSession",false))}
-    var page by remember{mutableIntStateOf(0)}
-    var adminLogin by remember{mutableStateOf(false)}
-    var form by remember{mutableStateOf(false)}
-    var edit by remember{mutableStateOf<Offer?>(null)}
-    var review by remember{mutableStateOf<Offer?>(null)}
-    var details by remember{mutableStateOf<Offer?>(null)}
-    var search by remember{mutableStateOf("")}
-    var userPhone by remember{mutableStateOf(prefs.getString("phone","")?:"")}
-    var offers by remember{mutableStateOf(loadOffers(prefs))}
+@Composable
+private fun MainScreen() {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("chemlink", Context.MODE_PRIVATE) }
+    var admin by remember { mutableStateOf(prefs.getBoolean("adminSession", false)) }
+    var page by remember { mutableIntStateOf(0) }
+    var showAdminLogin by remember { mutableStateOf(false) }
+    var showOfferForm by remember { mutableStateOf(false) }
+    var reviewOffer by remember { mutableStateOf<Offer?>(null) }
+    var detailsOffer by remember { mutableStateOf<Offer?>(null) }
+    var editOffer by remember { mutableStateOf<Offer?>(null) }
+    var search by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf(prefs.getString("phone", "").orEmpty()) }
+    var offers by remember { mutableStateOf(loadOffers(prefs)) }
 
-    fun save(o:Offer){val list=offers.toMutableList();val i=list.indexOfFirst{it.id==o.id};if(i>=0)list[i]=o else list.add(o.copy(id=(list.maxOfOrNull{it.id}?:0)+1));offers=list;persistOffers(prefs,list)}
-    fun logout(){userPhone="";prefs.edit().remove("phone").remove("name").remove("company").apply()}
+    fun saveOffer(input: Offer) {
+        val list = offers.toMutableList()
+        val index = list.indexOfFirst { it.id == input.id }
+        if (index >= 0) list[index] = input else list.add(input.copy(id = (list.maxOfOrNull { it.id } ?: 0) + 1))
+        offers = list
+        persistOffers(prefs, list)
+    }
 
-    Scaffold(topBar={TopAppBar(title={Column{Text("ChemLink",fontWeight=FontWeight.ExtraBold);Text(if(admin)"پنل مدیریت" else "بازار مواد اولیه",style=MaterialTheme.typography.labelSmall,color=Gold)}},actions={TextButton(onClick={if(admin){admin=false;prefs.edit().putBoolean("adminSession",false).apply()}else page=3}){Text(if(admin)"خروج از مدیریت" else "تنظیمات")}})},bottomBar={if(!admin)NavigationBar{
-        NavigationBarItem(page==0,{page=0},{Text("بازار")},{Text("بازار")});NavigationBarItem(page==1,{page=1},{Text("+")},{Text("ثبت آگهی")});NavigationBarItem(page==2,{page=2},{Text("من")},{Text("حساب")});NavigationBarItem(page==3,{page=3},{Text("⚙")},{Text("تنظیمات")})
-    }}){pad->when{
-        admin->AdminDashboard(Modifier.padding(pad),offers,{review=it},{o->save(o)})
-        page==0->MarketPage(Modifier.padding(pad),offers,search,{search=it}){details=it}
-        page==1->NewOfferPage(Modifier.padding(pad),userPhone){if(userPhone.isBlank())page=2 else{edit=null;form=true}}
-        page==2->AccountPage(Modifier.padding(pad),userPhone,{page=0},{logout()},{edit=null;form=true})
-        else->SettingsPage(Modifier.padding(pad)){adminLogin=true}
-    }}
-    details?.let{o->OfferDetails(o){details=null}}
-    if(adminLogin)AdminLoginDialog({adminLogin=false}){admin=true;prefs.edit().putBoolean("adminSession",true).apply();adminLogin=false}
-    if(form)OfferFormDialog(edit,userPhone,admin,{form=false;edit=null}){o->save(o);form=false;edit=null;page=if(admin)0 else 2}
-    review?.let{o->ReviewDialog(o,{review=null},{approved->save(approved);review=null},{target,reason->save(target.copy(status=Status.REJECTED,reason=reason));review=null})}
+    fun logout() {
+        phone = ""
+        prefs.edit().remove("phone").apply()
+        admin = false
+        prefs.edit().putBoolean("adminSession", false).apply()
+        context.startActivity(Intent(context, EntryActivity::class.java))
+        (context as? ComponentActivity)?.finish()
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text("ChemLink", fontWeight = FontWeight.ExtraBold)
+                        Text(if (admin) "پنل مدیریت" else "بازار مواد اولیه", style = MaterialTheme.typography.labelSmall, color = Gold)
+                    }
+                },
+                actions = {
+                    TextButton(onClick = {
+                        if (admin) {
+                            admin = false
+                            prefs.edit().putBoolean("adminSession", false).apply()
+                        } else page = 3
+                    }) { Text(if (admin) "خروج از مدیریت" else "تنظیمات") }
+                }
+            )
+        },
+        bottomBar = {
+            if (!admin) NavigationBar {
+                NavigationBarItem(selected = page == 0, onClick = { page = 0 }, icon = { Text("⌂") }, label = { Text("بازار") })
+                NavigationBarItem(selected = page == 1, onClick = { page = 1 }, icon = { Text("+") }, label = { Text("ثبت آگهی") })
+                NavigationBarItem(selected = page == 2, onClick = { page = 2 }, icon = { Text("●") }, label = { Text("حساب") })
+                NavigationBarItem(selected = page == 3, onClick = { page = 3 }, icon = { Text("⚙") }, label = { Text("تنظیمات") })
+            }
+        }
+    ) { padding ->
+        when {
+            admin -> AdminDashboard(
+                modifier = Modifier.padding(padding),
+                offers = offers,
+                onOpen = { reviewOffer = it },
+                onSave = ::saveOffer
+            )
+            page == 0 -> MarketPage(Modifier.padding(padding), offers, search, { search = it }) { detailsOffer = it }
+            page == 1 -> NewOfferPage(Modifier.padding(padding), phone) {
+                if (phone.isBlank()) page = 2 else { editOffer = null; showOfferForm = true }
+            }
+            page == 2 -> AccountPage(Modifier.padding(padding), phone, { page = 0 }, ::logout) {
+                editOffer = null
+                showOfferForm = true
+            }
+            else -> SettingsPage(Modifier.padding(padding)) { showAdminLogin = true }
+        }
+    }
+
+    if (showAdminLogin) {
+        AdminLoginDialog(
+            close = { showAdminLogin = false },
+            success = {
+                admin = true
+                page = 0
+                prefs.edit().putBoolean("adminSession", true).apply()
+                showAdminLogin = false
+            }
+        )
+    }
+
+    if (showOfferForm) {
+        OfferFormDialog(
+            old = editOffer,
+            owner = phone,
+            close = { showOfferForm = false; editOffer = null },
+            submit = {
+                saveOffer(it)
+                showOfferForm = false
+                editOffer = null
+                page = if (admin) 0 else 2
+            }
+        )
+    }
+
+    reviewOffer?.let { offer ->
+        ReviewDialog(
+            offer = offer,
+            close = { reviewOffer = null },
+            approve = { saveOffer(it); reviewOffer = null },
+            reject = { target, reason -> saveOffer(target.copy(status = Status.REJECTED, reason = reason)); reviewOffer = null }
+        )
+    }
+
+    detailsOffer?.let { offer -> OfferDetails(offer) { detailsOffer = null } }
 }
 
-@Composable private fun MarketPage(m:Modifier,offers:List<Offer>,q:String,setQ:(String)->Unit,open:(Offer)->Unit){
-    val list=offers.filter{it.status==Status.APPROVED&&(q.isBlank()||it.name.contains(q,true))}
-    LazyColumn(m.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){item{Card(colors=CardDefaults.cardColors(containerColor=Navy),shape=RoundedCornerShape(24.dp)){Column(Modifier.padding(20.dp)){Text("ChemLink",color=Color.White,style=MaterialTheme.typography.headlineMedium,fontWeight=FontWeight.ExtraBold);Text("بازار حرفه‌ای مواد اولیه",color=Gold);Text("قیمت نهایی رسمی و غیررسمی • مکان و زمان تحویل",color=Color.White)}};Spacer(Modifier.height(12.dp));OutlinedTextField(q,setQ,Modifier.fillMaxWidth(),singleLine=true,label={Text("جستجوی ماده")})};items(list,key={it.id}){o->Card(Modifier.fillMaxWidth().clickable{open(o)},shape=RoundedCornerShape(16.dp)){Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){Text(o.name,fontWeight=FontWeight.Bold);Text("قیمت نهایی رسمی: ${o.publishedOfficial.ifBlank{o.official}}",fontWeight=FontWeight.SemiBold);Text("قیمت نهایی غیررسمی: ${o.publishedMarket.ifBlank{o.market}}",fontWeight=FontWeight.SemiBold);Text("مکان تحویل: ${o.place}");Text("زمان تحویل: ${o.time}")}}};if(list.isEmpty())item{Text("آگهی تأییدشده‌ای وجود ندارد.")}}
+@Composable
+private fun MarketPage(modifier: Modifier, offers: List<Offer>, query: String, onQuery: (String) -> Unit, open: (Offer) -> Unit) {
+    val visible = offers.filter { it.status == Status.APPROVED && (query.isBlank() || it.name.contains(query, true)) }
+    LazyColumn(modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        item {
+            Card(colors = CardDefaults.cardColors(containerColor = Navy), shape = RoundedCornerShape(22.dp)) {
+                Column(Modifier.padding(20.dp)) {
+                    Text("ChemLink", color = Color.White, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
+                    Text("بازار حرفه‌ای مواد اولیه", color = Gold)
+                    Text("قیمت نهایی رسمی و غیررسمی • بدون نمایش نام فروشنده", color = Color.White)
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            OutlinedTextField(value = query, onValueChange = onQuery, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("جستجوی ماده") })
+        }
+        items(visible, key = { it.id }) { offer ->
+            Card(Modifier.fillMaxWidth().clickable { open(offer) }, shape = RoundedCornerShape(16.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text(offer.name, fontWeight = FontWeight.Bold)
+                    Text("قیمت نهایی رسمی: ${offer.publishedOfficial}", fontWeight = FontWeight.SemiBold)
+                    Text("قیمت نهایی غیررسمی: ${offer.publishedMarket}", fontWeight = FontWeight.SemiBold)
+                    Text("مکان تحویل: ${offer.place}")
+                    Text("زمان تحویل: ${offer.time}")
+                }
+            }
+        }
+        if (visible.isEmpty()) item { Text("آگهی تأییدشده‌ای وجود ندارد.") }
+    }
 }
 
-@Composable private fun AdminDashboard(m:Modifier,offers:List<Offer>,open:(Offer)->Unit,save:(Offer)->Unit){
-    var tab by remember{mutableIntStateOf(0)};var usersTab by remember{mutableStateOf(false)};val ctx=LocalContext.current;val prefs=remember{ctx.getSharedPreferences("chemlink",Context.MODE_PRIVATE)};val users=loadUsers(prefs)
-    val list=when(tab){0->offers.filter{it.status==Status.PENDING};1->offers.filter{it.status==Status.REJECTED};else->offers.filter{it.status==Status.APPROVED}}
-    Column(m.padding(16.dp)){Text("مدیریت",style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.ExtraBold);Spacer(Modifier.height(8.dp));Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(5.dp)){Button({tab=0},Modifier.weight(1f)){Text("در انتظار ${offers.count{it.status==Status.PENDING}}")};Button({tab=1},Modifier.weight(1f)){Text("اصلاحیه ${offers.count{it.status==Status.REJECTED}}")};Button({tab=2},Modifier.weight(1f)){Text("منتشر ${offers.count{it.status==Status.APPROVED}}")}};Spacer(Modifier.height(8.dp));Button({usersTab=!usersTab},Modifier.fillMaxWidth()){Text(if(usersTab)"بازگشت به آگهی‌ها" else "تامین‌کنندگان و مصرف‌کنندگان")};if(usersTab){UserCounts(users)}else LazyColumn(verticalArrangement=Arrangement.spacedBy(10.dp)){items(list,key={it.id}){o->Card(Modifier.fillMaxWidth()){Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){Text(o.name,fontWeight=FontWeight.Bold);Text("قیمت تامین‌کننده رسمی: ${o.official} | غیررسمی: ${o.market}");Text("تحویل: ${o.place} | ${o.time}");if(o.reason.isNotBlank())Text("اصلاحیه: ${o.reason}",color=MaterialTheme.colorScheme.error);Button({open(o)}){Text("باز کردن و بررسی کامل")}}}};if(list.isEmpty())item{Text("موردی برای نمایش نیست.")}}}
+@Composable
+private fun AdminDashboard(modifier: Modifier, offers: List<Offer>, onOpen: (Offer) -> Unit, onSave: (Offer) -> Unit) {
+    var tab by remember { mutableIntStateOf(0) }
+    var showUsers by remember { mutableStateOf(false) }
+    val prefs = LocalContext.current.getSharedPreferences("chemlink", Context.MODE_PRIVATE)
+    val users = loadUsers(prefs)
+    val list = when (tab) {
+        0 -> offers.filter { it.status == Status.PENDING }
+        1 -> offers.filter { it.status == Status.REJECTED }
+        else -> offers.filter { it.status == Status.APPROVED }
+    }
+    Column(modifier.padding(16.dp)) {
+        Text("مدیریت", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Button({ tab = 0 }, Modifier.weight(1f)) { Text("در انتظار ${offers.count { it.status == Status.PENDING }}") }
+            Button({ tab = 1 }, Modifier.weight(1f)) { Text("اصلاحیه ${offers.count { it.status == Status.REJECTED }}") }
+            Button({ tab = 2 }, Modifier.weight(1f)) { Text("منتشر ${offers.count { it.status == Status.APPROVED }}") }
+        }
+        Spacer(Modifier.height(8.dp))
+        Button({ showUsers = !showUsers }, Modifier.fillMaxWidth()) { Text(if (showUsers) "بازگشت به آگهی‌ها" else "تأمین‌کنندگان و مصرف‌کنندگان") }
+        if (showUsers) {
+            UserCounts(users)
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(list, key = { it.id }) { offer ->
+                    Card(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Text(offer.name, fontWeight = FontWeight.Bold)
+                            Text("قیمت تأمین‌کننده رسمی: ${offer.official}")
+                            Text("قیمت تأمین‌کننده غیررسمی: ${offer.market}")
+                            Text("تحویل: ${offer.place} | ${offer.time}")
+                            if (offer.reason.isNotBlank()) Text("اصلاحیه: ${offer.reason}", color = MaterialTheme.colorScheme.error)
+                            Button({ onOpen(offer) }) { Text("باز کردن و بررسی") }
+                        }
+                    }
+                }
+                if (list.isEmpty()) item { Text("موردی برای نمایش نیست.") }
+            }
+        }
+    }
 }
 
-@Composable private fun UserCounts(users:List<UserAccount>){val suppliers=users.count{it.type=="Supplier"};val consumers=users.count{it.type=="Consumer"};Column(verticalArrangement=Arrangement.spacedBy(10.dp)){Text("ثبت‌نام کاربران",style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold);Card(Modifier.fillMaxWidth()){Column(Modifier.padding(16.dp)){Text("تامین‌کننده: $suppliers نفر",fontWeight=FontWeight.Bold);Text("مصرف‌کننده: $consumers نفر",fontWeight=FontWeight.Bold);Text("مجموع: ${users.size} نفر")}};Text("اطلاعات کاربران در همین حساب مدیریت ذخیره می‌شود و با خروج از حساب کاربر پاک نمی‌شود.",style=MaterialTheme.typography.bodySmall)}}
-
-@Composable private fun ReviewDialog(o:Offer,close:()->Unit,approve:(Offer)->Unit,reject:(Offer,String)->Unit){
-    var type by remember(o.id){mutableStateOf(o.marginType)};var value by remember(o.id){mutableStateOf(if(o.margin==0.0)"" else o.margin.toString())};var reason by remember(o.id){mutableStateOf("")};val a=num(o.official)?:0L;val b=num(o.market)?:0L;val margin=value.toDoubleOrNull()?:0.0;fun add(base:Long)=if(type==MarginType.PERCENT)base+(base*margin/100).toLong() else base+margin.toLong();val fo=add(a);val fm=add(b)
-    AlertDialog(onDismissRequest=close,title={Text("بررسی آگهی")},text={Column(Modifier.heightIn(max=600.dp),verticalArrangement=Arrangement.spacedBy(7.dp)){Text(o.name,fontWeight=FontWeight.Bold);if(o.photo.isNotBlank())PhotoView(o.photo);Text("قیمت تامین‌کننده رسمی: ${o.official}");Text("قیمت تامین‌کننده غیررسمی: ${o.market}");Text("مکان تحویل: ${o.place}");Text("زمان تحویل: ${o.time}");Text("سود مدیر برای هر دو قیمت:");Row{FilterChip(type==MarginType.PERCENT,{type=MarginType.PERCENT},{Text("درصد")});Spacer(Modifier.width(8.dp));FilterChip(type==MarginType.TOMAN,{type=MarginType.TOMAN},{Text("تومان")})};OutlinedTextField(value,{value=it.filter{c->c.isDigit()||c=='.'}},Modifier.fillMaxWidth(),singleLine=true,label={Text("مقدار سود")});Text("قیمت نهایی رسمی: ${money(fo)}",fontWeight=FontWeight.Bold,color=Gold);Text("قیمت نهایی غیررسمی: ${money(fm)}",fontWeight=FontWeight.Bold,color=Gold);OutlinedTextField(reason,{reason=it},Modifier.fillMaxWidth(),label={Text("دلیل اصلاحیه")})}},confirmButton={Button({approve(o.copy(status=Status.APPROVED,marginType=type,margin=margin,publishedOfficial=money(fo),publishedMarket=money(fm)))}){Text("تأیید و انتشار")}},dismissButton={Row{TextButton(close){Text("بازگشت")};TextButton({reject(o,reason.ifBlank{"لطفاً اطلاعات آگهی اصلاح شود"})}){Text("ثبت اصلاحیه")}}})
+@Composable
+private fun UserCounts(users: List<UserAccount>) {
+    val suppliers = users.count { it.type == "Supplier" }
+    val consumers = users.count { it.type == "Consumer" }
+    Column(Modifier.padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text("ثبت‌نام کاربران", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("تأمین‌کنندگان: $suppliers نفر")
+                Text("مصرف‌کنندگان: $consumers نفر")
+                Text("مجموع کاربران: ${users.size} نفر", fontWeight = FontWeight.Bold)
+            }
+        }
+    }
 }
 
-@Composable private fun OfferFormDialog(old:Offer?,owner:String,admin:Boolean,close:()->Unit,submit:(Offer)->Unit){
-    var name by remember{mutableStateOf(old?.name?:"")};var official by remember{mutableStateOf(old?.official?:"")};var market by remember{mutableStateOf(old?.market?:"")};var place by remember{mutableStateOf(old?.place?:"")};var time by remember{mutableStateOf(old?.time?:"")};var supplier by remember{mutableStateOf(old?.supplier?:"")};var phoneV by remember{mutableStateOf(old?.phone?:owner)};var description by remember{mutableStateOf(old?.description?:"")};var photo by remember{mutableStateOf(old?.photo?:"")};val context=LocalContext.current;val picker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri:Uri?->uri?.let{runCatching{context.contentResolver.takePersistableUriPermission(it,Intent.FLAG_GRANT_READ_URI_PERMISSION)};photo=it.toString()}}
-    AlertDialog(onDismissRequest=close,title={Text(if(old==null)"ثبت آگهی" else "ویرایش آگهی")},text={Column(Modifier.heightIn(max=650.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){Input("نام ماده",name){name=it};Input("قیمت تامین‌کننده رسمی",official){official=it};Input("قیمت تامین‌کننده غیررسمی",market){market=it};Input("مکان تحویل",place){place=it};Input("زمان تحویل",time){time=it};Input("نام فروشنده (فقط مدیریت)",supplier){supplier=it};Input("شماره تماس",phoneV){phoneV=digits(it).filter(Char::isDigit).take(11)};Input("توضیحات",description){description=it};Button({picker.launch(arrayOf("image/*"))},Modifier.fillMaxWidth()){Text(if(photo.isBlank())"آپلود عکس محصول مشتری" else "تغییر عکس")};if(photo.isNotBlank())PhotoView(photo)}},confirmButton={Button({if(name.isNotBlank())submit(Offer(old?.id?:0,name,official,market,place,time,supplier,phoneV,owner,description,photo,old?.status?:if(admin)Status.APPROVED else Status.PENDING,old?.reason?:"",old?.marginType?:MarginType.PERCENT,old?.margin?:0.0,old?.publishedOfficial?:"",old?.publishedMarket?:""))}){Text("ذخیره")}},dismissButton={TextButton(close){Text("انصراف")}})
+@Composable
+private fun ReviewDialog(offer: Offer, close: () -> Unit, approve: (Offer) -> Unit, reject: (Offer, String) -> Unit) {
+    var marginType by remember(offer.id) { mutableStateOf(offer.marginType) }
+    var marginText by remember(offer.id) { mutableStateOf(if (offer.margin == 0.0) "" else offer.margin.toString()) }
+    var reason by remember(offer.id) { mutableStateOf("") }
+    val officialBase = parseMoney(offer.official) ?: 0L
+    val marketBase = parseMoney(offer.market) ?: 0L
+    val margin = marginText.toDoubleOrNull() ?: 0.0
+    fun finalPrice(base: Long): Long = if (marginType == MarginType.PERCENT) base + (base * margin / 100.0).toLong() else base + margin.toLong()
+    val finalOfficial = finalPrice(officialBase)
+    val finalMarket = finalPrice(marketBase)
+
+    AlertDialog(
+        onDismissRequest = close,
+        title = { Text("بررسی آگهی") },
+        text = {
+            Column(Modifier.heightIn(max = 620.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text(offer.name, fontWeight = FontWeight.Bold)
+                if (offer.photo.isNotBlank()) PhotoView(offer.photo)
+                Text("قیمت تأمین‌کننده رسمی: ${offer.official}")
+                Text("قیمت تأمین‌کننده غیررسمی: ${offer.market}")
+                Text("مکان تحویل: ${offer.place}")
+                Text("زمان تحویل: ${offer.time}")
+                Text("نام فروشنده: ${offer.supplier}")
+                Text("شماره تماس: ${offer.phone}")
+                Text("سود مدیریت روی هر دو قیمت اعمال می‌شود:", fontWeight = FontWeight.Bold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = marginType == MarginType.PERCENT, onClick = { marginType = MarginType.PERCENT }, label = { Text("درصد") })
+                    FilterChip(selected = marginType == MarginType.TOMAN, onClick = { marginType = MarginType.TOMAN }, label = { Text("تومان") })
+                }
+                OutlinedTextField(value = marginText, onValueChange = { marginText = it.filter { c -> c.isDigit() || c == '.' } }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("مقدار سود") })
+                Text("قیمت نهایی رسمی: ${money(finalOfficial)}", color = Gold, fontWeight = FontWeight.Bold)
+                Text("قیمت نهایی غیررسمی: ${money(finalMarket)}", color = Gold, fontWeight = FontWeight.Bold)
+                OutlinedTextField(value = reason, onValueChange = { reason = it }, modifier = Modifier.fillMaxWidth(), label = { Text("دلیل اصلاحیه") })
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                approve(offer.copy(status = Status.APPROVED, marginType = marginType, margin = margin, publishedOfficial = money(finalOfficial), publishedMarket = money(finalMarket)))
+            }) { Text("تأیید و انتشار") }
+        },
+        dismissButton = {
+            Row {
+                TextButton(onClick = close) { Text("بازگشت") }
+                TextButton(onClick = { reject(offer, reason.ifBlank { "لطفاً اطلاعات آگهی اصلاح شود" }) }) { Text("ثبت اصلاحیه") }
+            }
+        }
+    )
 }
-@Composable private fun Input(label:String,value:String,onChange:(String)->Unit)=OutlinedTextField(value,onChange,Modifier.fillMaxWidth(),singleLine=true,label={Text(label)})
 
-@Composable private fun OfferDetails(o:Offer,close:()->Unit){AlertDialog(onDismissRequest=close,title={Text(o.name)},text={Column(verticalArrangement=Arrangement.spacedBy(6.dp)){if(o.photo.isNotBlank())PhotoView(o.photo);Text("قیمت نهایی رسمی: ${o.publishedOfficial.ifBlank{o.official}}",fontWeight=FontWeight.SemiBold);Text("قیمت نهایی غیررسمی: ${o.publishedMarket.ifBlank{o.market}}",fontWeight=FontWeight.SemiBold);Text("تحویل: ${o.place}");Text("زمان تحویل: ${o.time}");Text("تماس: ${o.phone}");Text(o.description)}},confirmButton={TextButton(close){Text("بستن")}})}
+@Composable
+private fun OfferFormDialog(old: Offer?, owner: String, close: () -> Unit, submit: (Offer) -> Unit) {
+    var name by remember { mutableStateOf(old?.name.orEmpty()) }
+    var official by remember { mutableStateOf(old?.official.orEmpty()) }
+    var market by remember { mutableStateOf(old?.market.orEmpty()) }
+    var place by remember { mutableStateOf(old?.place.orEmpty()) }
+    var time by remember { mutableStateOf(old?.time.orEmpty()) }
+    var supplier by remember { mutableStateOf(old?.supplier.orEmpty()) }
+    var phone by remember { mutableStateOf(old?.phone ?: owner) }
+    var description by remember { mutableStateOf(old?.description.orEmpty()) }
+    var photo by remember { mutableStateOf(old?.photo.orEmpty()) }
+    val context = LocalContext.current
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        uri?.let {
+            runCatching { context.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            photo = it.toString()
+        }
+    }
+    AlertDialog(
+        onDismissRequest = close,
+        title = { Text(if (old == null) "ثبت آگهی" else "ویرایش آگهی") },
+        text = {
+            Column(Modifier.heightIn(max = 650.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Field("نام ماده", name) { name = it }
+                Field("قیمت تأمین‌کننده رسمی", official) { official = it }
+                Field("قیمت تأمین‌کننده غیررسمی", market) { market = it }
+                Field("مکان تحویل", place) { place = it }
+                Field("زمان تحویل", time) { time = it }
+                Field("نام فروشنده (فقط مدیریت)", supplier) { supplier = it }
+                Field("شماره تماس", phone) { phone = digits(it).filter(Char::isDigit).take(11) }
+                Field("توضیحات", description) { description = it }
+                Button(onClick = { picker.launch(arrayOf("image/*")) }, modifier = Modifier.fillMaxWidth()) { Text(if (photo.isBlank()) "آپلود عکس محصول" else "تغییر عکس") }
+                if (photo.isNotBlank()) PhotoView(photo)
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                if (name.isNotBlank()) submit(
+                    Offer(
+                        id = old?.id ?: 0,
+                        name = name,
+                        official = official,
+                        market = market,
+                        place = place,
+                        time = time,
+                        supplier = supplier,
+                        phone = phone,
+                        owner = owner,
+                        description = description,
+                        photo = photo,
+                        status = old?.status ?: Status.PENDING,
+                        reason = old?.reason.orEmpty(),
+                        marginType = old?.marginType ?: MarginType.PERCENT,
+                        margin = old?.margin ?: 0.0,
+                        publishedOfficial = old?.publishedOfficial.orEmpty(),
+                        publishedMarket = old?.publishedMarket.orEmpty()
+                    )
+                )
+            }) { Text("ذخیره") }
+        },
+        dismissButton = { TextButton(onClick = close) { Text("انصراف") } }
+    )
+}
 
-@Composable private fun PhotoView(value:String){val c=LocalContext.current;val bitmap=remember(value){runCatching{c.contentResolver.openInputStream(Uri.parse(value)).use{BitmapFactory.decodeStream(it)}}.getOrNull()};bitmap?.let{Image(it.asImageBitmap(),null,Modifier.fillMaxWidth().height(180.dp),contentScale=ContentScale.Crop)}}
+@Composable
+private fun Field(label: String, value: String, onChange: (String) -> Unit) {
+    OutlinedTextField(value = value, onValueChange = onChange, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(label) })
+}
 
-@Composable private fun NewOfferPage(m:Modifier,phone:String,start:()->Unit){Column(m.padding(20.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center){Text("ثبت آگهی مواد اولیه",style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold);Text("شماره حساب: ${phone.ifBlank{"وارد نشده"}}");Spacer(Modifier.height(18.dp));Button(start,Modifier.fillMaxWidth()){Text("ایجاد آگهی")}}}
+@Composable
+private fun OfferDetails(offer: Offer, close: () -> Unit) {
+    AlertDialog(onDismissRequest = close, title = { Text(offer.name) }, text = {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (offer.photo.isNotBlank()) PhotoView(offer.photo)
+            Text("قیمت نهایی رسمی: ${offer.publishedOfficial}")
+            Text("قیمت نهایی غیررسمی: ${offer.publishedMarket}")
+            Text("مکان تحویل: ${offer.place}")
+            Text("زمان تحویل: ${offer.time}")
+            Text(offer.description)
+        }
+    }, confirmButton = { TextButton(onClick = close) { Text("بستن") } })
+}
 
-@Composable private fun AccountPage(m:Modifier,phone:String,home:()->Unit,logout:()->Unit,newOffer:()->Unit){val c=LocalContext.current;val p=remember{c.getSharedPreferences("chemlink",Context.MODE_PRIVATE)};Column(m.padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){Text("حساب کاربری",style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold);Text("شماره موبایل: ${phone.ifBlank{"—"}}");Text("نوع حساب: ${if(p.getString("type","Consumer")=="Supplier")"تامین‌کننده" else "مصرف‌کننده"}");Button(newOffer,Modifier.fillMaxWidth()){Text("ثبت آگهی")};Button(logout,Modifier.fillMaxWidth()){Text("خروج از حساب")};TextButton(home){Text("بازگشت به بازار")}}}
+@Composable
+private fun PhotoView(value: String) {
+    val context = LocalContext.current
+    val bitmap = remember(value) { runCatching { context.contentResolver.openInputStream(Uri.parse(value)).use { BitmapFactory.decodeStream(it) } }.getOrNull() }
+    if (bitmap != null) Image(bitmap = bitmap.asImageBitmap(), contentDescription = "عکس محصول", modifier = Modifier.fillMaxWidth().height(170.dp), contentScale = ContentScale.Crop)
+}
 
-@Composable private fun SettingsPage(m:Modifier,admin:()->Unit){Column(m.padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){Text("تنظیمات",style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold);Button(admin,Modifier.fillMaxWidth()){Text("ورود به مدیریت")}}}
+@Composable
+private fun NewOfferPage(modifier: Modifier, phone: String, onStart: () -> Unit) {
+    Column(modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("ثبت آگهی فروش", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+        Text(if (phone.isBlank()) "برای ثبت آگهی ابتدا وارد حساب شوید." else "آگهی شما ابتدا توسط مدیریت بررسی می‌شود.")
+        Button(onClick = onStart, modifier = Modifier.fillMaxWidth()) { Text(if (phone.isBlank()) "ورود به حساب" else "ثبت آگهی جدید") }
+    }
+}
 
-@Composable private fun AdminLoginDialog(close:()->Unit,success:()->Unit){var code by remember{mutableStateOf("")};var error by remember{mutableStateOf("")};AlertDialog(onDismissRequest=close,title={Text("ورود مدیریت")},text={Column{Text("این کد فقط برای ورود به بخش مدیریت است.");OutlinedTextField(code,{code=digits(it).filter(Char::isDigit).take(8)},Modifier.fillMaxWidth(),singleLine=true,label={Text("کد مدیریت")});if(error.isNotBlank())Text(error,color=MaterialTheme.colorScheme.error)}},confirmButton={Button({if(hash(code)==ADMIN_HASH)success()else error="کد مدیریت صحیح نیست."}){Text("ورود")}},dismissButton={TextButton(close){Text("انصراف")}})}
+@Composable
+private fun AccountPage(modifier: Modifier, phone: String, home: () -> Unit, logout: () -> Unit, newOffer: () -> Unit) {
+    val prefs = LocalContext.current.getSharedPreferences("chemlink", Context.MODE_PRIVATE)
+    val users = loadUsers(prefs)
+    val account = users.firstOrNull { it.phone == phone }
+    Column(modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text("حساب کاربری", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+        if (phone.isBlank()) {
+            Text("هنوز وارد حساب نشده‌اید.")
+        } else {
+            Text("شماره: $phone")
+            Text("نوع حساب: ${if (account?.type == "Supplier") "تأمین‌کننده" else "مصرف‌کننده"}")
+            account?.company?.takeIf { it.isNotBlank() }?.let { Text("شرکت: $it") }
+            Button(onClick = newOffer, modifier = Modifier.fillMaxWidth()) { Text("ثبت آگهی") }
+            OutlinedButton(onClick = logout, modifier = Modifier.fillMaxWidth()) { Text("خروج از حساب") }
+        }
+        TextButton(onClick = home) { Text("بازگشت به بازار") }
+    }
+}
 
-private fun persistOffers(prefs:android.content.SharedPreferences,list:List<Offer>){val a=JSONArray();list.forEach{o->a.put(JSONObject().apply{put("id",o.id);put("name",o.name);put("official",o.official);put("market",o.market);put("place",o.place);put("time",o.time);put("supplier",o.supplier);put("phone",o.phone);put("owner",o.owner);put("description",o.description);put("photo",o.photo);put("status",o.status.name);put("reason",o.reason);put("marginType",o.marginType.name);put("margin",o.margin);put("publishedOfficial",o.publishedOfficial);put("publishedMarket",o.publishedMarket)});prefs.edit().putString("offers",a.toString()).apply()}
-private fun loadOffers(prefs:android.content.SharedPreferences):List<Offer>{val raw=prefs.getString("offers","[]")?:"[]";return runCatching{val a=JSONArray(raw);List(a.length()){i->val o=a.getJSONObject(i);Offer(o.optInt("id"),o.optString("name"),o.optString("official"),o.optString("market"),o.optString("place"),o.optString("time"),o.optString("supplier"),o.optString("phone"),o.optString("owner"),o.optString("description"),o.optString("photo"),runCatching{Status.valueOf(o.optString("status"))}.getOrDefault(Status.PENDING),o.optString("reason"),runCatching{MarginType.valueOf(o.optString("marginType"))}.getOrDefault(MarginType.PERCENT),o.optDouble("margin",0.0),o.optString("publishedOfficial",o.optString("published")),o.optString("publishedMarket"))}}.getOrDefault(emptyList())}
-private fun loadUsers(prefs:android.content.SharedPreferences):List<UserAccount>{val raw=prefs.getString("users","[]")?:"[]";return runCatching{val a=JSONArray(raw);List(a.length()){i->val o=a.getJSONObject(i);UserAccount(o.optString("phone"),o.optString("type","Consumer"),o.optString("name"),o.optString("company"))}}.getOrDefault(emptyList())}
+@Composable
+private fun SettingsPage(modifier: Modifier, admin: () -> Unit) {
+    Column(modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("تنظیمات", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+        Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { Text("مدیریت سامانه", fontWeight = FontWeight.Bold); Text("ورود مخصوص مدیر برای بررسی و انتشار آگهی‌ها") } }
+        Button(onClick = admin, modifier = Modifier.fillMaxWidth()) { Text("ورود به مدیریت") }
+    }
+}
+
+@Composable
+private fun AdminLoginDialog(close: () -> Unit, success: () -> Unit) {
+    var code by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf("") }
+    AlertDialog(onDismissRequest = close, title = { Text("ورود مدیریت") }, text = {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("کد مدیریت را وارد کنید.")
+            OutlinedTextField(value = code, onValueChange = { code = digits(it).filter(Char::isDigit).take(8) }, singleLine = true, visualTransformation = PasswordVisualTransformation(), label = { Text("کد مدیریت") })
+            if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
+        }
+    }, confirmButton = { Button(onClick = { if (hash(code) == ADMIN_HASH) success() else error = "کد مدیریت صحیح نیست." }) { Text("ورود") } }, dismissButton = { TextButton(onClick = close) { Text("انصراف") } })
+}
+
+private fun loadOffers(prefs: android.content.SharedPreferences): List<Offer> {
+    val array = runCatching { JSONArray(prefs.getString("offers", "[]") ?: "[]") }.getOrDefault(JSONArray())
+    val result = mutableListOf<Offer>()
+    for (i in 0 until array.length()) {
+        val o = array.optJSONObject(i) ?: continue
+        result += Offer(
+            id = o.optInt("id"), name = o.optString("name"), official = o.optString("official"), market = o.optString("market"),
+            place = o.optString("place"), time = o.optString("time"), supplier = o.optString("supplier"), phone = o.optString("phone"),
+            owner = o.optString("owner"), description = o.optString("description"), photo = o.optString("photo"),
+            status = runCatching { Status.valueOf(o.optString("status", "PENDING")) }.getOrDefault(Status.PENDING), reason = o.optString("reason"),
+            marginType = runCatching { MarginType.valueOf(o.optString("marginType", "PERCENT")) }.getOrDefault(MarginType.PERCENT),
+            margin = o.optDouble("margin", 0.0), publishedOfficial = o.optString("publishedOfficial"), publishedMarket = o.optString("publishedMarket")
+        )
+    }
+    return result
+}
+
+private fun persistOffers(prefs: android.content.SharedPreferences, offers: List<Offer>) {
+    val array = JSONArray()
+    offers.forEach { o ->
+        array.put(JSONObject().apply {
+            put("id", o.id); put("name", o.name); put("official", o.official); put("market", o.market); put("place", o.place); put("time", o.time)
+            put("supplier", o.supplier); put("phone", o.phone); put("owner", o.owner); put("description", o.description); put("photo", o.photo)
+            put("status", o.status.name); put("reason", o.reason); put("marginType", o.marginType.name); put("margin", o.margin)
+            put("publishedOfficial", o.publishedOfficial); put("publishedMarket", o.publishedMarket)
+        })
+    }
+    prefs.edit().putString("offers", array.toString()).apply()
+}
+
+private fun loadUsers(prefs: android.content.SharedPreferences): List<UserAccount> {
+    val array = runCatching { JSONArray(prefs.getString("users", "[]") ?: "[]") }.getOrDefault(JSONArray())
+    val result = mutableListOf<UserAccount>()
+    for (i in 0 until array.length()) {
+        val o = array.optJSONObject(i) ?: continue
+        result += UserAccount(o.optString("phone"), o.optString("type", "Consumer"), o.optString("name"), o.optString("company"))
+    }
+    return result
+}
