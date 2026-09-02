@@ -18,17 +18,26 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import org.json.JSONArray
+import org.json.JSONObject
 import java.security.SecureRandom
 
 class EntryActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val prefs = getSharedPreferences("chemlink", Context.MODE_PRIVATE)
+        if (prefs.getString("phone", "").orEmpty().isNotBlank()) {
+            startActivity(Intent(this, MainActivity::class.java))
+            finish()
+            return
+        }
         setContent { ChemLinkEntryApp() }
     }
 }
@@ -46,6 +55,28 @@ private fun normalizeDigits(value: String): String = value.map { c ->
     }
 }.joinToString("")
 
+private fun saveRegisteredUser(context: Context, phone: String, type: String) {
+    val prefs = context.getSharedPreferences("chemlink", Context.MODE_PRIVATE)
+    val raw = prefs.getString("users", "[]") ?: "[]"
+    val old = runCatching { JSONArray(raw) }.getOrDefault(JSONArray())
+    val users = JSONArray()
+    var found = false
+    for (i in 0 until old.length()) {
+        val item = old.getJSONObject(i)
+        if (item.optString("phone") == phone) {
+            users.put(JSONObject().apply {
+                put("phone", phone)
+                put("type", type)
+                put("name", item.optString("name"))
+                put("company", item.optString("company"))
+            })
+            found = true
+        } else users.put(item)
+    }
+    if (!found) users.put(JSONObject().apply { put("phone", phone); put("type", type); put("name", ""); put("company", "") })
+    prefs.edit().putString("users", users.toString()).apply()
+}
+
 @Composable
 private fun ChemLinkEntryApp() {
     val colors = lightColorScheme(primary = EntryNavy, secondary = EntryGold, background = EntryCream, surface = Color.White, onPrimary = Color.White, onBackground = EntryNavy)
@@ -54,19 +85,17 @@ private fun ChemLinkEntryApp() {
 
 @Composable
 private fun EntryFlow() {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     var step by rememberSaveable { mutableIntStateOf(0) }
     var phone by rememberSaveable { mutableStateOf("") }
     var code by rememberSaveable { mutableStateOf("") }
     var expectedCode by rememberSaveable { mutableStateOf("") }
     var error by rememberSaveable { mutableStateOf("") }
+    var accountType by rememberSaveable { mutableStateOf("Consumer") }
 
     fun sendVerificationSms(targetPhone: String, verificationCode: String) {
-        val message = "ChemLink\nکد تایید شما: $verificationCode\nاین کد را در اختیار دیگران قرار ندهید."
-        val intent = Intent(Intent.ACTION_SENDTO).apply {
-            data = Uri.parse("smsto:$targetPhone")
-            putExtra("sms_body", message)
-        }
+        val message = "ChemLink\nکد تأیید ورود به حساب: $verificationCode\nاین پیامک برای تأیید حساب کاربری ChemLink است. کد را در اختیار دیگران قرار ندهید."
+        val intent = Intent(Intent.ACTION_SENDTO).apply { data = Uri.parse("smsto:$targetPhone"); putExtra("sms_body", message) }
         context.startActivity(intent)
     }
 
@@ -75,22 +104,23 @@ private fun EntryFlow() {
             0 -> WelcomeScreen { step = 1 }
             1 -> ServiceLoginScreen(
                 phone = phone,
+                type = accountType,
+                onTypeChange = { accountType = it },
                 onPhoneChange = { phone = normalizeDigits(it).filter(Char::isDigit).take(11) },
                 onContinue = {
                     phone = normalizeDigits(phone).filter(Char::isDigit).take(11)
                     if (phone.length != 11 || !phone.startsWith("09")) error = "لطفاً شماره موبایل ۱۱ رقمی را درست وارد کنید."
                     else { error = ""; expectedCode = SecureRandom().nextInt(900000).plus(100000).toString(); sendVerificationSms(phone, expectedCode); step = 2 }
-                },
-                error = error
+                }, error = error
             )
             else -> VerifyCodeScreen(
-                phone = phone,
-                code = code,
+                phone = phone, code = code,
                 onCodeChange = { code = normalizeDigits(it).filter(Char::isDigit).take(6) },
                 onVerify = {
                     code = normalizeDigits(code).filter(Char::isDigit).take(6)
                     if (code == expectedCode && expectedCode.isNotBlank()) {
-                        context.getSharedPreferences("chemlink", Context.MODE_PRIVATE).edit().putString("phone", phone).putString("name", "").putString("email", "").putString("address", "").putString("company", "").putString("type", "Consumer").apply()
+                        saveRegisteredUser(context, phone, accountType)
+                        context.getSharedPreferences("chemlink", Context.MODE_PRIVATE).edit().putString("phone", phone).putString("type", accountType).apply()
                         context.startActivity(Intent(context, MainActivity::class.java)); (context as? ComponentActivity)?.finish()
                     } else error = "کد واردشده صحیح نیست."
                 },
@@ -109,9 +139,11 @@ private fun EntryFlow() {
     }
 }
 
-@Composable private fun ServiceLoginScreen(phone: String, onPhoneChange: (String) -> Unit, onContinue: () -> Unit, error: String) {
+@Composable private fun ServiceLoginScreen(phone: String, type: String, onTypeChange: (String) -> Unit, onPhoneChange: (String) -> Unit, onContinue: () -> Unit, error: String) {
     Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        BrandLogo(Modifier.size(86.dp)); Spacer(Modifier.height(24.dp)); Text("دریافت خدمات تأمین و فروش", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = EntryNavy, textAlign = TextAlign.Center); Spacer(Modifier.height(10.dp)); Text("لطفاً وارد حساب کاربری شوید.", color = EntryNavy, textAlign = TextAlign.Center); Spacer(Modifier.height(26.dp)); OutlinedTextField(value = phone, onValueChange = onPhoneChange, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("شماره موبایل") }, placeholder = { Text("0912xxxxxxx") }, leadingIcon = { Icon(Icons.Default.Phone, null, tint = EntryBlue) }); if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)); Spacer(Modifier.height(18.dp)); Button(onClick = onContinue, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = EntryNavy)) { Text("دریافت کد تأیید") }
+        BrandLogo(Modifier.size(86.dp)); Spacer(Modifier.height(18.dp)); Text("دریافت خدمات تأمین و فروش", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = EntryNavy, textAlign = TextAlign.Center); Spacer(Modifier.height(8.dp)); Text("نوع حساب را انتخاب کنید و شماره موبایل را وارد کنید.", color = EntryNavy, textAlign = TextAlign.Center); Spacer(Modifier.height(18.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(selected = type == "Consumer", onClick = { onTypeChange("Consumer") }, label = { Text("مصرف‌کننده") }, modifier = Modifier.weight(1f)); FilterChip(selected = type == "Supplier", onClick = { onTypeChange("Supplier") }, label = { Text("تامین‌کننده") }, modifier = Modifier.weight(1f)) }
+        Spacer(Modifier.height(12.dp)); OutlinedTextField(value = phone, onValueChange = onPhoneChange, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("شماره موبایل") }, placeholder = { Text("0912xxxxxxx") }, leadingIcon = { Icon(Icons.Default.Phone, null, tint = EntryBlue) }); if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)); Spacer(Modifier.height(18.dp)); Button(onClick = onContinue, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = EntryNavy)) { Text("دریافت کد تأیید") }
     }
 }
 
