@@ -5,15 +5,18 @@ on:
   push:
     branches: [ main ]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Set up JDK
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
@@ -26,48 +29,25 @@ jobs:
           yes | sdkmanager --licenses >/dev/null 2>&1 || true
           sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Apply app flow patch
-        run: python3 scripts/implement_divar_style_user_flow.py
-
-      - name: Apply admin SMS and hidden entry patch
+      - name: Finalize hidden admin gesture source
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p = Path('app/src/main/java/com/dehghanzadeh/chemtrade/MainActivity.kt')
           s = p.read_text(encoding='utf-8')
-
-          # Use the same SMS-app flow as normal users: no SEND_SMS runtime permission.
-          s = s.replace('import android.Manifest\n', '')
-          s = s.replace('import android.content.pm.PackageManager\n', '')
-          s = s.replace('import android.telephony.SmsManager\n', '')
-          s = s.replace('import androidx.core.content.ContextCompat\n', '')
-          if 'import androidx.compose.foundation.gestures.detectTapGestures\n' not in s:
-              s = s.replace('import androidx.compose.foundation.Image\n', 'import androidx.compose.foundation.Image\nimport androidx.compose.foundation.gestures.detectTapGestures\n', 1)
-          if 'import androidx.compose.ui.input.pointer.pointerInput\n' not in s:
-              s = s.replace('import androidx.compose.ui.graphics.asImageBitmap\n', 'import androidx.compose.ui.graphics.asImageBitmap\nimport androidx.compose.ui.input.pointer.pointerInput\n', 1)
-
-          old = '''fun sendAdminOtp() {\n        val otp = SecureRandom().nextInt(900000).plus(100000).toString()\n        val message = "ChemLink | مدیریت\\nکد تأیید ورود پنل مدیریت: $otp\\nاین کد مخصوص مدیریت است."\n        try {\n            @Suppress("DEPRECATION")\n            val manager = SmsManager.getDefault()\n            val parts = manager.divideMessage(message)\n            if (parts.size == 1) manager.sendTextMessage(adminPhone, null, message, null, null)\n            else manager.sendMultipartTextMessage(adminPhone, null, parts, null, null)\n            expected = otp\n            sent = true\n            error = "کد مخصوص مدیریت ارسال شد."\n        } catch (e: Exception) {\n            error = "ارسال کد مدیریت ناموفق بود. مجوز SMS و سیم‌کارت را بررسی کنید."\n        } finally {\n            sending = false\n        }\n    }'''
-          new = '''fun sendAdminOtp() {\n        val otp = SecureRandom().nextInt(900000).plus(100000).toString()\n        val message = "ChemLink | مدیریت\\nکد تأیید ورود پنل مدیریت: $otp\\nاین کد مخصوص مدیریت است."\n        expected = otp\n        sent = true\n        error = "کد مخصوص مدیریت آماده شد؛ در برنامه پیامک روی ارسال بزنید."\n        sending = false\n        val intent = Intent(Intent.ACTION_SENDTO).apply {\n            data = Uri.parse("smsto:$adminPhone")\n            putExtra("sms_body", message)\n        }\n        runCatching { context.startActivity(intent) }.onFailure {\n            sent = false\n            error = "برنامه پیامک روی این گوشی در دسترس نیست."\n        }\n    }'''
-          if old in s:
-              s = s.replace(old, new, 1)
-
-          old_perm = '''    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->\n        if (granted) sendAdminOtp() else {\n            sending = false\n            error = "برای ورود مدیریت باید مجوز ارسال پیامک را تأیید کنید."\n        }\n    }\n\n'''
-          s = s.replace(old_perm, '', 1)
-
-          old_click = '''                        if (ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED) sendAdminOtp()\n                        else permissionLauncher.launch(Manifest.permission.SEND_SMS)'''
-          s = s.replace(old_click, '                        sendAdminOtp()', 1)
-
-          # Hide the admin entry from the normal settings page. Admin opens it by long-pressing the ChemLink title.
-          s = s.replace('Text("ChemLink", fontWeight = FontWeight.ExtraBold)', 'Text("ChemLink", fontWeight = FontWeight.ExtraBold, modifier = Modifier.pointerInput(admin) { detectTapGestures(onLongPress = { if (!admin) showAdminLogin = true }) })', 1)
-          s = s.replace('else -> SettingsPage(Modifier.padding(padding)) { showAdminLogin = true }', 'else -> SettingsPage(Modifier.padding(padding))', 1)
-          s = s.replace('private fun SettingsPage(modifier: Modifier, admin: () -> Unit) {', 'private fun SettingsPage(modifier: Modifier) {', 1)
-          s = s.replace('        Button(onClick = admin, modifier = Modifier.fillMaxWidth()) { Text("ورود به مدیریت") }\n', '', 1)
+          s = s.replace('HiddenAdminBrand { /* intentionally hidden management entry */ }', 'HiddenAdminBrand { showAdminLogin = true }')
           p.write_text(s, encoding='utf-8')
-          print('Admin OTP now uses SMS app without SEND_SMS permission; admin entry is hidden behind long-press on ChemLink title.')
           PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/dehghanzadeh/chemtrade/MainActivity.kt
+          if ! git diff --cached --quiet; then
+            git commit -m "Fix hidden five-second admin entry"
+            git push
+          fi
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
 
