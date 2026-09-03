@@ -160,7 +160,7 @@ private fun MarketPage(modifier: Modifier, offers: List<Offer>, query: String, o
     val visible = offers.filter { it.status == Status.APPROVED && (query.isBlank() || it.name.contains(query, true)) }
     LazyColumn(modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
-            HiddenAdminBrand { /* intentionally hidden management entry */ }
+            HiddenAdminBrand { showAdminLogin = true }
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(query, onQuery, Modifier.fillMaxWidth(), singleLine = true, label = { Text("جستجوی ماده") }, placeholder = { Text("مثلاً منواتانول آمین") })
             Spacer(Modifier.height(6.dp)); Text("آگهی‌های تأییدشده", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
