@@ -3,29 +3,23 @@ from pathlib import Path
 path = Path("app/src/main/java/com/dehghanzadeh/chemtrade/MainActivity.kt")
 s = path.read_text(encoding="utf-8")
 
-# Keep the existing user SMS login imports intact. The admin login uses the
-# same ACTION_SENDTO flow and therefore must not use SEND_SMS permissions.
+# Keep every Android/Compose import used by the existing admin SMS flow.
 required_imports = [
+    "import android.Manifest",
+    "import android.content.pm.PackageManager",
+    "import android.telephony.SmsManager",
+    "import androidx.core.content.ContextCompat",
     "import androidx.activity.compose.rememberLauncherForActivityResult",
     "import androidx.activity.result.contract.ActivityResultContracts",
     "import androidx.compose.foundation.gestures.detectTapGestures",
 ]
 for imp in required_imports:
     if imp not in s:
-        marker = "import androidx.activity.ComponentActivity"
         if imp.startswith("import androidx.compose"):
             marker = "import androidx.compose.foundation.Image"
+        else:
+            marker = "import androidx.activity.ComponentActivity"
         s = s.replace(marker, marker + "\n" + imp, 1)
-
-# These permissions/APIs are not needed by the admin flow and can trigger
-# Android SMS permission issues. Remove them only if they are truly unused.
-for imp in [
-    "import android.Manifest\n",
-    "import android.content.pm.PackageManager\n",
-    "import android.telephony.SmsManager\n",
-    "import androidx.core.content.ContextCompat\n",
-]:
-    s = s.replace(imp, "")
 
 # The market screen must receive the admin-unlock callback from MainScreen;
 # otherwise showAdminLogin is out of scope and Kotlin compilation fails.
@@ -43,8 +37,7 @@ s = s.replace(
 )
 
 # Replace the unavailable awaitEachGesture implementation with the simpler
-# detectTapGestures long-press API, which is compatible with the project's
-# Compose version and still requires a continuous 5-second press.
+# detectTapGestures long-press API, compatible with the project's Compose version.
 old_start = s.find("    Box(Modifier.fillMaxWidth().pointerInput(Unit) {")
 old_end = s.find("    }, contentAlignment = Alignment.Center) {", old_start)
 if old_start >= 0 and old_end >= 0:
