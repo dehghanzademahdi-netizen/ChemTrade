@@ -29,20 +29,66 @@ jobs:
           yes | sdkmanager --licenses >/dev/null 2>&1 || true
           sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Finalize hidden admin gesture source
+      - name: Fix admin OTP to use the same SMS flow as users
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
+
           p = Path('app/src/main/java/com/dehghanzadeh/chemtrade/MainActivity.kt')
           s = p.read_text(encoding='utf-8')
-          s = s.replace('HiddenAdminBrand { /* intentionally hidden management entry */ }', 'HiddenAdminBrand { showAdminLogin = true }')
+
+          s = s.replace('import android.Manifest\n', '')
+          s = s.replace('import android.content.pm.PackageManager\n', '')
+          s = s.replace('import android.telephony.SmsManager\n', '')
+          s = s.replace('import androidx.core.content.ContextCompat\n', '')
+
+          old_block = '''    fun sendAdminOtp() {
+          val otp = SecureRandom().nextInt(900000).plus(100000).toString()
+          try {
+              @Suppress("DEPRECATION") val manager = SmsManager.getDefault(); val sms = "ChemLink | کد ورود مدیریت: $otp\\nاین کد را در اختیار دیگران قرار ندهید."; val parts = manager.divideMessage(sms)
+              if (parts.size == 1) manager.sendTextMessage(ADMIN_PHONE, null, sms, null, null) else manager.sendMultipartTextMessage(ADMIN_PHONE, null, parts, null, null)
+              expected = otp; step = 2; message = "کد ورود به شماره مدیریت ارسال شد."; error = ""
+          } catch (_: Exception) { error = "ارسال پیامک ناموفق بود. مجوز SMS و سیم‌کارت را بررسی کنید." }
+          sending = false
+      }
+      val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> if (granted) sendAdminOtp() else { sending = false; error = "مجوز ارسال پیامک داده نشد." } }
+'''
+
+          new_block = '''    fun sendAdminOtp() {
+          val otp = SecureRandom().nextInt(900000).plus(100000).toString()
+          val sms = "ChemLink\\nکد تأیید ورود به مدیریت: $otp\\nاین کد را در اختیار دیگران قرار ندهید."
+          val intent = Intent(Intent.ACTION_SENDTO).apply {
+              data = Uri.parse("smsto:$ADMIN_PHONE")
+              putExtra("sms_body", sms)
+          }
+          context.startActivity(intent)
+          expected = otp
+          step = 2
+          message = "پیامک آماده ارسال شد. در برنامه پیامک روی ارسال بزنید، سپس کد را اینجا وارد کنید."
+          error = ""
+          sending = false
+      }
+'''
+
+          if old_block not in s:
+              raise SystemExit('Expected admin SMS block was not found')
+          s = s.replace(old_block, new_block)
+
+          old_click = '''1 -> { sending = true; if (ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED) sendAdminOtp() else permissionLauncher.launch(Manifest.permission.SEND_SMS) }'''
+          new_click = '''1 -> { sending = true; sendAdminOtp() }'''
+          if old_click not in s:
+              raise SystemExit('Expected admin SMS click block was not found')
+          s = s.replace(old_click, new_click)
+
           p.write_text(s, encoding='utf-8')
           PY
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app/src/main/java/com/dehghanzadeh/chemtrade/MainActivity.kt
           if ! git diff --cached --quiet; then
-            git commit -m "Fix hidden five-second admin entry"
+            git commit -m "Fix admin OTP SMS flow"
             git push
           fi
 
