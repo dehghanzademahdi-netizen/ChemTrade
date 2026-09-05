@@ -5,9 +5,6 @@ on:
   push:
     branches: [ main ]
 
-permissions:
-  contents: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -29,134 +26,8 @@ jobs:
           yes | sdkmanager --licenses >/dev/null 2>&1 || true
           sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Fix admin login to reuse user SMS flow
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-
-          p = Path('app/src/main/java/com/dehghanzadeh/chemtrade/MainActivity.kt')
-          s = p.read_text(encoding='utf-8')
-
-          for imp in [
-              'import android.Manifest\n',
-              'import android.content.pm.PackageManager\n',
-              'import android.telephony.SmsManager\n',
-              'import androidx.activity.result.contract.ActivityResultContracts\n',
-              'import androidx.activity.compose.rememberLauncherForActivityResult\n',
-              'import androidx.core.content.ContextCompat\n',
-          ]:
-              s = s.replace(imp, '')
-
-          start = s.find('@Composable\nprivate fun AdminLoginDialog')
-          end = s.find('\nprivate fun loadOffers', start)
-          if start < 0 or end < 0:
-              raise SystemExit('AdminLoginDialog boundaries were not found')
-
-          new_function = '''@Composable
-private fun AdminLoginDialog(close: () -> Unit, success: () -> Unit) {
-    val context = LocalContext.current
-    var step by remember { mutableIntStateOf(0) }
-    var password by remember { mutableStateOf("") }
-    var code by remember { mutableStateOf("") }
-    var expected by remember { mutableStateOf("") }
-    var message by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf("") }
-    var sending by remember { mutableStateOf(false) }
-
-    fun sendAdminOtp() {
-        val otp = SecureRandom().nextInt(900000).plus(100000).toString()
-        val sms = "ChemLink\\nکد تأیید ورود به مدیریت: $otp\\nاین کد را در اختیار دیگران قرار ندهید."
-        expected = otp
-        step = 2
-        message = "پیامک آماده ارسال شد. در برنامه پیامک روی ارسال بزنید، سپس کد را اینجا وارد کنید."
-        error = ""
-        sending = false
-        try {
-            val intent = Intent(Intent.ACTION_SENDTO).apply {
-                data = Uri.parse("smsto:$ADMIN_PHONE")
-                putExtra("sms_body", sms)
-            }
-            context.startActivity(intent)
-        } catch (_: Exception) {
-            sending = false
-            error = "برنامه پیامک روی گوشی پیدا نشد."
-        }
-    }
-
-    AlertDialog(
-        onDismissRequest = close,
-        title = { Text(if (step == 0) "ورود مدیریت" else "تأیید دو مرحله‌ای مدیریت") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                when (step) {
-                    0 -> {
-                        Text("دسترسی مدیریت محافظت شده است.")
-                        OutlinedTextField(
-                            password,
-                            { password = digits(it).take(12) },
-                            Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            visualTransformation = PasswordVisualTransformation(),
-                            label = { Text("رمز مدیریت") }
-                        )
-                    }
-                    1 -> Text("رمز صحیح است. برای مرحله دوم کد پیامکی را ارسال کنید.")
-                    else -> {
-                        Text("کد ۶ رقمی ارسال‌شده به شماره مدیریت را وارد کنید.")
-                        OutlinedTextField(
-                            code,
-                            { code = digits(it).filter(Char::isDigit).take(6) },
-                            Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            label = { Text("کد پیامکی") }
-                        )
-                    }
-                }
-                if (message.isNotBlank()) Text(message, color = Green)
-                if (error.isNotBlank()) Text(error, color = Red)
-            }
-        },
-        confirmButton = {
-            Button(
-                enabled = !sending,
-                onClick = {
-                    when (step) {
-                        0 -> if (hash(password) == ADMIN_HASH) {
-                            step = 1
-                            error = ""
-                        } else {
-                            error = "رمز مدیریت صحیح نیست."
-                        }
-                        1 -> {
-                            sending = true
-                            sendAdminOtp()
-                        }
-                        else -> if (code == expected && expected.isNotBlank()) {
-                            success()
-                        } else {
-                            error = "کد پیامکی صحیح نیست."
-                        }
-                    }
-                }
-            ) { Text(when (step) { 0 -> "ادامه"; 1 -> "ارسال کد پیامکی"; else -> "تأیید و ورود" }) }
-        },
-        dismissButton = { TextButton(close) { Text("انصراف") } }
-    )
-}
-'''
-
-          s = s[:start] + new_function + s[end:]
-          p.write_text(s, encoding='utf-8')
-          PY
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app/src/main/java/com/dehghanzadeh/chemtrade/MainActivity.kt
-          if ! git diff --cached --quiet; then
-            git commit -m "Fix admin login SMS flow"
-            git push
-          fi
+      - name: Patch admin SMS flow
+        run: python3 .github/scripts/fix-admin-sms.py
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -164,17 +35,7 @@ private fun AdminLoginDialog(close: () -> Unit, success: () -> Unit) {
           gradle-version: '8.11.1'
 
       - name: Build debug APK
-        run: |
-          set -o pipefail
-          gradle :app:assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
-
-      - name: Upload build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ChemTrade-build-log
-          path: build.log
-          if-no-files-found: warn
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
 
       - name: Verify APK
         run: |
