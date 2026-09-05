@@ -29,7 +29,7 @@ jobs:
           yes | sdkmanager --licenses >/dev/null 2>&1 || true
           sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Fix admin OTP to use the same SMS flow as users
+      - name: Fix admin login to reuse user SMS flow
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -38,49 +38,115 @@ jobs:
           p = Path('app/src/main/java/com/dehghanzadeh/chemtrade/MainActivity.kt')
           s = p.read_text(encoding='utf-8')
 
-          s = s.replace('import android.Manifest\n', '')
-          s = s.replace('import android.content.pm.PackageManager\n', '')
-          s = s.replace('import android.telephony.SmsManager\n', '')
-          s = s.replace('import androidx.core.content.ContextCompat\n', '')
+          for imp in [
+              'import android.Manifest\n',
+              'import android.content.pm.PackageManager\n',
+              'import android.telephony.SmsManager\n',
+              'import androidx.activity.result.contract.ActivityResultContracts\n',
+              'import androidx.activity.compose.rememberLauncherForActivityResult\n',
+              'import androidx.core.content.ContextCompat\n',
+          ]:
+              s = s.replace(imp, '')
 
-          old_block = '''    fun sendAdminOtp() {
-          val otp = SecureRandom().nextInt(900000).plus(100000).toString()
-          try {
-              @Suppress("DEPRECATION") val manager = SmsManager.getDefault(); val sms = "ChemLink | کد ورود مدیریت: $otp\\nاین کد را در اختیار دیگران قرار ندهید."; val parts = manager.divideMessage(sms)
-              if (parts.size == 1) manager.sendTextMessage(ADMIN_PHONE, null, sms, null, null) else manager.sendMultipartTextMessage(ADMIN_PHONE, null, parts, null, null)
-              expected = otp; step = 2; message = "کد ورود به شماره مدیریت ارسال شد."; error = ""
-          } catch (_: Exception) { error = "ارسال پیامک ناموفق بود. مجوز SMS و سیم‌کارت را بررسی کنید." }
-          sending = false
-      }
-      val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> if (granted) sendAdminOtp() else { sending = false; error = "مجوز ارسال پیامک داده نشد." } }
+          start = s.find('@Composable\nprivate fun AdminLoginDialog')
+          end = s.find('\nprivate fun loadOffers', start)
+          if start < 0 or end < 0:
+              raise SystemExit('AdminLoginDialog boundaries were not found')
+
+          new_function = '''@Composable
+private fun AdminLoginDialog(close: () -> Unit, success: () -> Unit) {
+    val context = LocalContext.current
+    var step by remember { mutableIntStateOf(0) }
+    var password by remember { mutableStateOf("") }
+    var code by remember { mutableStateOf("") }
+    var expected by remember { mutableStateOf("") }
+    var message by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf("") }
+    var sending by remember { mutableStateOf(false) }
+
+    fun sendAdminOtp() {
+        val otp = SecureRandom().nextInt(900000).plus(100000).toString()
+        val sms = "ChemLink\\nکد تأیید ورود به مدیریت: $otp\\nاین کد را در اختیار دیگران قرار ندهید."
+        expected = otp
+        step = 2
+        message = "پیامک آماده ارسال شد. در برنامه پیامک روی ارسال بزنید، سپس کد را اینجا وارد کنید."
+        error = ""
+        sending = false
+        try {
+            val intent = Intent(Intent.ACTION_SENDTO).apply {
+                data = Uri.parse("smsto:$ADMIN_PHONE")
+                putExtra("sms_body", sms)
+            }
+            context.startActivity(intent)
+        } catch (_: Exception) {
+            sending = false
+            error = "برنامه پیامک روی گوشی پیدا نشد."
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = close,
+        title = { Text(if (step == 0) "ورود مدیریت" else "تأیید دو مرحله‌ای مدیریت") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                when (step) {
+                    0 -> {
+                        Text("دسترسی مدیریت محافظت شده است.")
+                        OutlinedTextField(
+                            password,
+                            { password = digits(it).take(12) },
+                            Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            visualTransformation = PasswordVisualTransformation(),
+                            label = { Text("رمز مدیریت") }
+                        )
+                    }
+                    1 -> Text("رمز صحیح است. برای مرحله دوم کد پیامکی را ارسال کنید.")
+                    else -> {
+                        Text("کد ۶ رقمی ارسال‌شده به شماره مدیریت را وارد کنید.")
+                        OutlinedTextField(
+                            code,
+                            { code = digits(it).filter(Char::isDigit).take(6) },
+                            Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            label = { Text("کد پیامکی") }
+                        )
+                    }
+                }
+                if (message.isNotBlank()) Text(message, color = Green)
+                if (error.isNotBlank()) Text(error, color = Red)
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = !sending,
+                onClick = {
+                    when (step) {
+                        0 -> if (hash(password) == ADMIN_HASH) {
+                            step = 1
+                            error = ""
+                        } else {
+                            error = "رمز مدیریت صحیح نیست."
+                        }
+                        1 -> {
+                            sending = true
+                            sendAdminOtp()
+                        }
+                        else -> if (code == expected && expected.isNotBlank()) {
+                            success()
+                        } else {
+                            error = "کد پیامکی صحیح نیست."
+                        }
+                    }
+                }
+            ) { Text(when (step) { 0 -> "ادامه"; 1 -> "ارسال کد پیامکی"; else -> "تأیید و ورود" }) }
+        },
+        dismissButton = { TextButton(close) { Text("انصراف") } }
+    )
+}
 '''
 
-          new_block = '''    fun sendAdminOtp() {
-          val otp = SecureRandom().nextInt(900000).plus(100000).toString()
-          val sms = "ChemLink\\nکد تأیید ورود به مدیریت: $otp\\nاین کد را در اختیار دیگران قرار ندهید."
-          val intent = Intent(Intent.ACTION_SENDTO).apply {
-              data = Uri.parse("smsto:$ADMIN_PHONE")
-              putExtra("sms_body", sms)
-          }
-          context.startActivity(intent)
-          expected = otp
-          step = 2
-          message = "پیامک آماده ارسال شد. در برنامه پیامک روی ارسال بزنید، سپس کد را اینجا وارد کنید."
-          error = ""
-          sending = false
-      }
-'''
-
-          if old_block not in s:
-              raise SystemExit('Expected admin SMS block was not found')
-          s = s.replace(old_block, new_block)
-
-          old_click = '''1 -> { sending = true; if (ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED) sendAdminOtp() else permissionLauncher.launch(Manifest.permission.SEND_SMS) }'''
-          new_click = '''1 -> { sending = true; sendAdminOtp() }'''
-          if old_click not in s:
-              raise SystemExit('Expected admin SMS click block was not found')
-          s = s.replace(old_click, new_click)
-
+          s = s[:start] + new_function + s[end:]
           p.write_text(s, encoding='utf-8')
           PY
 
@@ -88,7 +154,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app/src/main/java/com/dehghanzadeh/chemtrade/MainActivity.kt
           if ! git diff --cached --quiet; then
-            git commit -m "Fix admin OTP SMS flow"
+            git commit -m "Fix admin login SMS flow"
             git push
           fi
 
