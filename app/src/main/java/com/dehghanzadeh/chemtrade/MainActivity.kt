@@ -142,7 +142,7 @@ private fun MainScreen() {
     ) { padding ->
         when {
             admin -> AdminDashboard(Modifier.padding(padding), offers, { reviewOffer = it }, { editOffer = null; showOfferForm = true })
-            page == 0 -> MarketPage(Modifier.padding(padding), offers, search, { search = it }) { detailsOffer = it }
+            page == 0 -> MarketPage(Modifier.padding(padding), offers, search, { search = it }, { showAdminLogin = true }) { detailsOffer = it }
             page == 1 -> NewOfferPage(Modifier.padding(padding), phone) { if (phone.isBlank()) page = 2 else { editOffer = null; showOfferForm = true } }
             page == 2 -> AccountPage(Modifier.padding(padding), phone, { page = 0 }, ::logout, { editOffer = null; showOfferForm = true }, { page = 4 }, { openExternal(context, waUri()) })
             page == 4 -> MyOffersPage(Modifier.padding(padding), offers, phone, { detailsOffer = it }, { offer, msg -> saveOffer(offer.copy(status = Status.PENDING, reason = msg)) }, { editOffer = it; showOfferForm = true })
@@ -156,11 +156,11 @@ private fun MainScreen() {
 }
 
 @Composable
-private fun MarketPage(modifier: Modifier, offers: List<Offer>, query: String, onQuery: (String) -> Unit, open: (Offer) -> Unit) {
+private fun MarketPage(modifier: Modifier, offers: List<Offer>, query: String, onQuery: (String) -> Unit, onAdminUnlock: () -> Unit, open: (Offer) -> Unit) {
     val visible = offers.filter { it.status == Status.APPROVED && (query.isBlank() || it.name.contains(query, true)) }
     LazyColumn(modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
-            HiddenAdminBrand { showAdminLogin = true }
+            HiddenAdminBrand(onAdminUnlock)
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(query, onQuery, Modifier.fillMaxWidth(), singleLine = true, label = { Text("جستجوی ماده") }, placeholder = { Text("مثلاً منواتانول آمین") })
             Spacer(Modifier.height(6.dp)); Text("آگهی‌های تأییدشده", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
