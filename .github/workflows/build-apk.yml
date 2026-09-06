@@ -29,6 +29,9 @@ jobs:
       - name: Patch admin SMS flow
         run: python3 .github/scripts/fix-admin-sms.py
 
+      - name: Patch final authentication flow
+        run: python3 .github/scripts/finish-auth-flow.py
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
