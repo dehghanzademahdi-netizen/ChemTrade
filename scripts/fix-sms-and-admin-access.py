@@ -6,23 +6,22 @@ entry = ROOT / "java/com/dehghanzadeh/chemtrade/EntryActivity.kt"
 main = ROOT / "java/com/dehghanzadeh/chemtrade/MainActivity.kt"
 manifest = ROOT / "AndroidManifest.xml"
 
-SMS_IMPORTS = ["import android.Manifest\n", "import android.content.pm.PackageManager\n", "import android.telephony.SmsManager\n", "import androidx.activity.compose.rememberLauncherForActivityResult\n", "import androidx.activity.result.contract.ActivityResultContracts\n", "import androidx.core.content.ContextCompat\n"]
-
-def clean(text):
-    for imp in SMS_IMPORTS:
+# Consumer flow: remove SMS-specific permission imports; use system SMS composer.
+def clean_entry(text):
+    for imp in [
+        "import android.Manifest\n", "import android.content.pm.PackageManager\n", "import android.telephony.SmsManager\n",
+        "import androidx.activity.compose.rememberLauncherForActivityResult\n", "import androidx.activity.result.contract.ActivityResultContracts\n", "import androidx.core.content.ContextCompat\n",
+    ]:
         text = text.replace(imp, "")
     return text
 
-# Consumer OTP: no SEND_SMS permission; use the system SMS composer.
-e = clean(entry.read_text(encoding="utf-8"))
+e = clean_entry(entry.read_text(encoding="utf-8"))
 if "import android.net.Uri\n" not in e:
     e = e.replace("import android.content.Intent\n", "import android.content.Intent\nimport android.net.Uri\n", 1)
 start = e.find("    fun sendVerificationSms(")
-if start < 0:
-    start = e.find("    fun prepareVerificationSms(")
+if start < 0: start = e.find("    fun prepareVerificationSms(")
 surface = e.find("    Surface(modifier = Modifier.fillMaxSize(), color = EntryCream) {", start)
-if start < 0 or surface < 0:
-    raise SystemExit("Entry auth markers not found")
+if start < 0 or surface < 0: raise SystemExit("Entry auth markers not found")
 entry_auth = '''    fun prepareVerificationSms(targetPhone: String, verificationCode: String) {
         val message = "ChemLink - کد تأیید ورود: $verificationCode - این کد را در اختیار دیگران قرار ندهید."
         try {
@@ -60,8 +59,10 @@ e = e[:start] + entry_auth + e[surface:]
 e = re.sub(r'try \{\s*sendVerificationSms\(phone, otp\)\s*\}\s*catch \([^)]*\)\s*\{[^}]*\}', 'prepareVerificationSms(phone, otp)', e, count=1, flags=re.S)
 entry.write_text(e, encoding="utf-8")
 
-# Admin OTP: no SEND_SMS permission; use the system SMS composer.
-m = clean(main.read_text(encoding="utf-8"))
+# MainActivity: preserve image picker imports, remove SMS permission imports only.
+m = main.read_text(encoding="utf-8")
+for imp in ["import android.Manifest\n", "import android.content.pm.PackageManager\n", "import android.telephony.SmsManager\n", "import androidx.core.content.ContextCompat\n"]:
+    m = m.replace(imp, "")
 if "import android.net.Uri\n" not in m:
     m = m.replace("import android.content.Intent\n", "import android.content.Intent\nimport android.net.Uri\n", 1)
 if "import androidx.compose.foundation.combinedClickable\n" not in m:
@@ -89,16 +90,14 @@ admin_sender = '''    fun sendAdminOtp() {
     }
 '''
 m, n = re.subn(r'    fun sendAdminOtp\(\)\s*\{.*?^    \}\n', admin_sender, m, count=1, flags=re.S|re.M)
-if n != 1:
-    raise SystemExit("Admin OTP function not found")
-
-# Remove old permission launcher and permission checks, even if previous patches formatted them differently.
+if n != 1: raise SystemExit("Admin OTP function not found")
+# Remove only the admin permission launcher, leaving the image picker intact.
 m = re.sub(r'\n\s*val permissionLauncher\s*=\s*rememberLauncherForActivityResult\([\s\S]*?\)\s*(?=\n\s*AlertDialog)', '\n', m, count=1)
 m = re.sub(r'\n\s*val permissionLauncher\s*=\s*rememberLauncherForActivityResult[^\n]*', '\n', m, count=1)
 m = re.sub(r'if \(ContextCompat\.checkSelfPermission\(context, Manifest\.permission\.SEND_SMS\) == PackageManager\.PERMISSION_GRANTED\)\s*sendAdminOtp\(\)\s*else\s*permissionLauncher\.launch\(Manifest\.permission\.SEND_SMS\)', 'sendAdminOtp()', m, count=1)
 m = m.replace('permissionLauncher.launch(Manifest.permission.SEND_SMS)', 'sendAdminOtp()')
 
-# Reliable hidden admin entry on the actual logo.
+# Reliable hidden admin entry: long-press the logo.
 hs = m.find("@Composable\nprivate fun HiddenAdminBrand")
 he = m.find("@Composable\nprivate fun AdminDashboard", hs)
 if hs >= 0 and he >= 0:
@@ -118,19 +117,13 @@ private fun HiddenAdminBrand(onUnlock: () -> Unit) {
 '''
     m = m[:hs] + hidden + m[he:]
 
-header_old = 'Image(painterResource(R.drawable.ic_chemtrade_logo), "ChemLink", Modifier.size(34.dp))'
-header_new = 'Image(painterResource(R.drawable.ic_chemtrade_logo), "ChemLink", Modifier.size(44.dp).combinedClickable(onClick = {}, onLongClick = { showAdminLogin = true }))'
-m = m.replace(header_old, header_new, 1)
+m = m.replace('Image(painterResource(R.drawable.ic_chemtrade_logo), "ChemLink", Modifier.size(34.dp))', 'Image(painterResource(R.drawable.ic_chemtrade_logo), "ChemLink", Modifier.size(44.dp).combinedClickable(onClick = {}, onLongClick = { showAdminLogin = true }))', 1)
 if 'combinedClickable(onClick = {}, onLongClick = { showAdminLogin = true })' in m:
     m = re.sub(r'(?m)^(@Composable\n(?:private )?fun MainScreen)', r'@OptIn(ExperimentalFoundationApi::class)\n\1', m, count=1)
 
-# Hard cleanup of any residual symbols that could trigger the permission dialog or compile failure.
-m = re.sub(r'\n\s*.*rememberLauncherForActivityResult.*', '', m)
-m = re.sub(r'\n\s*.*ActivityResultContracts.*', '', m)
-m = re.sub(r'\n\s*.*ContextCompat\.checkSelfPermission.*', '', m)
-m = re.sub(r'\n\s*.*SmsManager\.getDefault.*', '', m)
 main.write_text(m, encoding="utf-8")
 
+# Manifest: no SEND_SMS.
 a = manifest.read_text(encoding="utf-8")
 a = re.sub(r'\n\s*<uses-permission android:name="android\.permission\.SEND_SMS"\s*/>', '', a)
 manifest.write_text(a, encoding="utf-8")
