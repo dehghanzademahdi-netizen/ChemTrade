@@ -35,6 +35,9 @@ jobs:
       - name: Apply SMS and hidden admin fix
         run: python3 scripts/fix-sms-and-admin-access.py
 
+      - name: Apply business features
+        run: python3 scripts/fix-business-features.py
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
