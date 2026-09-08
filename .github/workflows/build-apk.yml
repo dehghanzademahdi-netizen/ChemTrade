@@ -38,6 +38,14 @@ jobs:
       - name: Apply business features
         run: python3 scripts/fix-business-features.py
 
+      - name: Apply persistent backup
+        run: python3 scripts/fix-persistent-backup.py
+
+      - name: Verify JVM target configuration
+        run: |
+          grep -q 'options.release.set(17)' app/build.gradle.kts
+          grep -q 'JVM_17' app/build.gradle.kts
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
