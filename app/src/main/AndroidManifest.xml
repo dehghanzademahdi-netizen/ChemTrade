@@ -5,7 +5,9 @@
         android:label="ChemLink"
         android:icon="@drawable/ic_chemtrade_logo"
         android:roundIcon="@drawable/ic_chemtrade_logo"
-        android:allowBackup="false"
+        android:allowBackup="true"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/backup_rules"
         android:supportsRtl="true">
 
         <activity android:name=".SmsGatewayActivity" android:exported="false" />
