@@ -7,11 +7,10 @@
         android:roundIcon="@drawable/ic_chemtrade_logo"
         android:allowBackup="true"
         android:fullBackupContent="@xml/backup_rules"
-        android:dataExtractionRules="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:supportsRtl="true">
 
         <activity android:name=".SmsGatewayActivity" android:exported="false" />
-
         <activity android:name=".MainActivity" android:exported="false" />
 
         <activity
