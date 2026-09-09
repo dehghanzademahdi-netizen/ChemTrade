@@ -10,21 +10,14 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Build
-import android.os.Environment
 import android.provider.MediaStore
-import org.json.JSONArray
 import org.json.JSONObject
-import java.io.File
 import java.security.MessageDigest
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
-/** Keeps an encrypted recovery copy outside the app's private storage.
- * On Android 10+ it is stored in the public Downloads/ChemLink folder, so it
- * is not removed when the APK is uninstalled. Android Auto Backup remains the
- * secondary restore mechanism on devices that support it.
- */
+/** Keeps an encrypted recovery copy outside the app's private storage. */
 object PersistentBackup {
     private const val FILE_NAME = "ChemLink_Backup.enc"
     private const val RELATIVE_PATH = "Download/ChemLink/"
@@ -91,9 +84,6 @@ object PersistentBackup {
                 resolver.openOutputStream(uri)?.use { it.write(bytes) }
                 values.clear(); values.put(MediaStore.Downloads.IS_PENDING, 0)
                 resolver.update(uri, values, null, null)
-            } else {
-                // Older Android: Auto Backup handles reinstall restoration.
-                // No SMS/storage permission is requested here.
             }
         }
     }
@@ -101,18 +91,26 @@ object PersistentBackup {
     fun restore(context: Context, prefs: SharedPreferences): Boolean {
         if (prefs.all.isNotEmpty()) return false
         return runCatching {
-            val bytes = if (Build.VERSION.SDK_INT >= 29) {
+            val bytes: ByteArray? = if (Build.VERSION.SDK_INT >= 29) {
                 val resolver = context.contentResolver
-                val uri = resolver.query(
+                val cursor = resolver.query(
                     MediaStore.Downloads.EXTERNAL_CONTENT_URI,
                     arrayOf(MediaStore.Downloads._ID),
                     "${MediaStore.Downloads.DISPLAY_NAME}=? AND ${MediaStore.Downloads.RELATIVE_PATH}=?",
                     arrayOf(FILE_NAME, RELATIVE_PATH),
                     "${MediaStore.Downloads.DATE_MODIFIED} DESC"
-                )?.use { c -> if (c.moveToFirst()) Uri.withAppendedPath(MediaStore.Downloads.EXTERNAL_CONTENT_URI, c.getLong(0).toString()) else null }
-                    ?.let { resolver.openInputStream(it)?.use { input -> input.readBytes() } }
+                )
+                val uri = cursor?.use { c ->
+                    if (c.moveToFirst()) {
+                        Uri.withAppendedPath(
+                            MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                            c.getLong(0).toString()
+                        )
+                    } else null
+                }
+                if (uri == null) null else resolver.openInputStream(uri)?.readBytes()
             } else null
-            val text = bytes?.let(::decrypt) ?: return false
+            val text: String = decrypt(bytes ?: return false) ?: return false
             val root = JSONObject(text)
             if (root.optString("prefix") != PREFIX) return false
             val values = root.optJSONObject("values") ?: return false
@@ -160,8 +158,6 @@ if needle in t:
 else:
     raise SystemExit("MainActivity startup marker not found")
 needle2 = 'prefs.edit().putString("offers", array.toString()).apply()'
-replacement2 = 'prefs.edit().putString("offers", array.toString()).apply()\n    PersistentBackup.backup(prefs.edit().run { contextForBackup(prefs) }, prefs)'
-# Do not use a fake context helper; instead add a process-level context holder below.
 replacement2 = 'prefs.edit().putString("offers", array.toString()).apply()\n    BackupContextHolder.context?.let { PersistentBackup.backup(it, prefs) }'
 if needle2 in t:
     t = t.replace(needle2, replacement2, 1)
@@ -169,7 +165,6 @@ else:
     raise SystemExit("MainActivity persist marker not found")
 if 'private object BackupContextHolder' not in t:
     t += '\n\nprivate object BackupContextHolder {\n    var context: Context? = null\n}\n'
-# Set holder from MainScreen context.
 needle3 = 'val context = LocalContext.current\n    val prefs = remember'
 replacement3 = 'val context = LocalContext.current\n    BackupContextHolder.context = context.applicationContext\n    val prefs = remember'
 if needle3 in t:
