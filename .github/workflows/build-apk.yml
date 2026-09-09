@@ -41,6 +41,20 @@ jobs:
       - name: Apply persistent backup
         run: python3 scripts/fix-persistent-backup.py
 
+      - name: Fix PersistentBackup Kotlin inference
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/dehghanzadeh/chemtrade/PersistentBackup.kt')
+          t = p.read_text(encoding='utf-8')
+          old = 'val text = bytes?.let(::decrypt) ?: return false\n            val root = JSONObject(text)'
+          new = 'val decrypted = bytes?.let { data -> decrypt(data) }\n            if (decrypted == null) return false\n            val root = JSONObject(decrypted)'
+          if old not in t:
+              raise SystemExit('PersistentBackup restore marker not found')
+          p.write_text(t.replace(old, new, 1), encoding='utf-8')
+          print('PERSISTENT BACKUP KOTLIN FIX OK')
+          PY
+
       - name: Apply ChemLink visual theme
         run: python3 scripts/apply-brand-theme.py
 
