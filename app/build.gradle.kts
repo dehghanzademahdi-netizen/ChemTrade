@@ -12,8 +12,9 @@ android {
         applicationId = "com.dehghanzadeh.chemtrade"
         minSdk = 26
         targetSdk = 35
-        versionCode = 7
-        versionName = "0.7.0"
+        versionCode = 8
+        versionName = "0.8.0"
+        buildConfigField("String", "CHEMLINK_FIREBASE_DB_URL", "\"${project.findProperty("chemlinkFirebaseDbUrl") ?: ""}\"")
     }
 
     compileOptions {
@@ -24,6 +25,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
