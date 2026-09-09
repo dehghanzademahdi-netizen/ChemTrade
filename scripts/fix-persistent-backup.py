@@ -131,7 +131,7 @@ object PersistentBackup {
 }
 ''', encoding="utf-8")
 
-# EntryActivity: restore before checking whether a session exists; back up after profile save.
+# Restore synchronously before EntryActivity checks the session.
 e = PKG / "EntryActivity.kt"
 t = e.read_text(encoding="utf-8")
 needle = 'val prefs = getSharedPreferences("chemlink", Context.MODE_PRIVATE)\n        if (prefs.getString("phone", "").orEmpty().isNotBlank())'
@@ -141,24 +141,24 @@ if needle in t:
 else:
     raise SystemExit("EntryActivity restore marker not found")
 needle2 = 'prefs.edit().putString("users", users.toString()).apply()'
-replacement2 = 'prefs.edit().putString("users", users.toString()).apply()\n    PersistentBackup.backup(context, prefs)'
+replacement2 = 'prefs.edit().putString("users", users.toString()).commit()\n    PersistentBackup.backup(context, prefs)'
 if needle2 in t:
     t = t.replace(needle2, replacement2, 1)
 else:
     raise SystemExit("EntryActivity save marker not found")
 e.write_text(t, encoding="utf-8")
 
-# MainActivity: restore at startup and update backup whenever offers are persisted.
+# MainActivity: restore synchronously before loadOffers, and back up every offer write.
 m = PKG / "MainActivity.kt"
 t = m.read_text(encoding="utf-8")
 needle = 'val prefs = remember { context.getSharedPreferences("chemlink", Context.MODE_PRIVATE) }\n    var admin by'
-replacement = 'val prefs = remember { context.getSharedPreferences("chemlink", Context.MODE_PRIVATE) }\n    LaunchedEffect(Unit) { PersistentBackup.restore(context, prefs) }\n    var admin by'
+replacement = 'val prefs = remember { context.getSharedPreferences("chemlink", Context.MODE_PRIVATE) }\n    remember { PersistentBackup.restore(context, prefs) }\n    var admin by'
 if needle in t:
     t = t.replace(needle, replacement, 1)
 else:
     raise SystemExit("MainActivity startup marker not found")
 needle2 = 'prefs.edit().putString("offers", array.toString()).apply()'
-replacement2 = 'prefs.edit().putString("offers", array.toString()).apply()\n    BackupContextHolder.context?.let { PersistentBackup.backup(it, prefs) }'
+replacement2 = 'prefs.edit().putString("offers", array.toString()).commit()\n    BackupContextHolder.context?.let { PersistentBackup.backup(it, prefs) }'
 if needle2 in t:
     t = t.replace(needle2, replacement2, 1)
 else:
