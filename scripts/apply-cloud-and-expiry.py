@@ -7,6 +7,8 @@ E = PKG / 'EntryActivity.kt'
 m = M.read_text(encoding='utf-8')
 e = E.read_text(encoding='utf-8')
 
+DAY30 = '30L * 24L * 60L * 60L * 1000L'
+
 old_offer = '''    val publishedOfficial: String = "",\n    val publishedMarket: String = ""\n)'''
 new_offer = '''    val publishedOfficial: String = "",\n    val publishedMarket: String = "",\n    val createdAt: Long = System.currentTimeMillis(),\n    val expiresAt: Long = createdAt + 30L * 24L * 60L * 60L * 1000L\n)'''
 if old_offer in m and 'val expiresAt:' not in m:
@@ -57,25 +59,18 @@ new = '''put("publishedOfficial", o.publishedOfficial); put("publishedMarket", o
 if old in m:
     m = m.replace(old, new, 1)
 
-# EntryActivity pulls the remote snapshot before looking up the phone number, so an account survives a reinstall.
+# Pull the cloud snapshot before checking whether the device already has a session.
 if 'kotlinx.coroutines.runBlocking' not in e:
     e = e.replace('import org.json.JSONObject\n', 'import org.json.JSONObject\nimport kotlinx.coroutines.runBlocking\n', 1)
-old = '''                        val existing = loadRegisteredUser(context, phone)\n                        if (existing != null && existing.name.isNotBlank() && existing.company.isNotBlank() && existing.address.isNotBlank()) {'''
-# If an older build of this patch inserted a per-user remote lookup, remove it and use the restored local cache.
-start = '                        val existing = loadRegisteredUser(context, phone)\n                        val cloudExisting = runBlocking { CloudStore.loadUser(phone) }'
-if start in e:
-    a = e.index(start)
-    b = e.index('                        } else if (existing != null && existing.name.isNotBlank() && existing.company.isNotBlank() && existing.address.isNotBlank()) {', a)
-    e = e[:a] + '                        val existing = loadRegisteredUser(context, phone)\n                        ' + e[b + len('                        } else if '):]
-
-old = '''prefs.edit().putString("users", users.toString()).apply()'''
-new = '''prefs.edit().putString("users", users.toString()).commit()\n    if (CloudStore.enabled()) {\n        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch { CloudStore.push(prefs) }\n    }'''
-if old in e and 'CloudStore.push(prefs)' not in e:
-    e = e.replace(old, new, 1)
-
 old = '''val prefs = getSharedPreferences("chemlink", Context.MODE_PRIVATE)\n        PersistentBackup.restore(this, prefs)'''
 new = '''val prefs = getSharedPreferences("chemlink", Context.MODE_PRIVATE)\n        PersistentBackup.restore(this, prefs)\n        if (CloudStore.enabled()) runBlocking { CloudStore.pull(prefs) }'''
 if old in e:
+    e = e.replace(old, new, 1)
+
+# Mirror every newly saved/edited customer profile to the cloud snapshot.
+old = '''prefs.edit().putString("users", users.toString()).apply()'''
+new = '''prefs.edit().putString("users", users.toString()).commit()\n    if (CloudStore.enabled()) {\n        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch { CloudStore.push(prefs) }\n    }'''
+if old in e and 'CloudStore.push(prefs)' not in e:
     e = e.replace(old, new, 1)
 
 M.write_text(m, encoding='utf-8')
