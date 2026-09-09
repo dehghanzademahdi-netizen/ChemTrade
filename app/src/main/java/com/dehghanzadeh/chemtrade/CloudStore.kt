@@ -44,10 +44,19 @@ object CloudStore {
     suspend fun pull(prefs: android.content.SharedPreferences): Boolean {
         val raw = request("GET", SNAPSHOT) ?: return false
         val payload = JSONObject(raw)
-        val users = payload.optString("users", "[]")
-        val offers = payload.optString("offers", "[]")
-        runCatching { JSONArray(users); JSONArray(offers) }.getOrElse { return false }
-        prefs.edit().putString("users", users).putString("offers", offers).apply()
+        val remoteUsers = payload.optString("users", "[]")
+        val remoteOffers = payload.optString("offers", "[]")
+        runCatching { JSONArray(remoteUsers); JSONArray(remoteOffers) }.getOrElse { return false }
+
+        val localUsers = prefs.getString("users", "[]") ?: "[]"
+        val localOffers = prefs.getString("offers", "[]") ?: "[]"
+        val remoteHasData = remoteUsers != "[]" || remoteOffers != "[]"
+        val localHasData = localUsers != "[]" || localOffers != "[]"
+
+        // Never erase an existing device's data with an empty first cloud snapshot.
+        if (!remoteHasData && localHasData) return false
+
+        prefs.edit().putString("users", remoteUsers).putString("offers", remoteOffers).apply()
         return true
     }
 }
