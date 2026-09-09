@@ -45,8 +45,8 @@ s = s.replace('private fun NewOfferPage(modifier: Modifier, phone: String, onSta
 # Form: select sale/request and preserve it when editing.
 s = s.replace('var name by remember { mutableStateOf(old?.name.orEmpty()) };', 'var kind by remember { mutableStateOf(old?.kind ?: OfferKind.SALE) }; var name by remember { mutableStateOf(old?.name.orEmpty()) };', 1)
 s = s.replace('Field("نام ماده", name) { name = it };', 'Text("نوع آگهی", fontWeight = FontWeight.Bold); Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(kind == OfferKind.SALE, { kind = OfferKind.SALE }, label = { Text("آگهی فروش") }, modifier = Modifier.weight(1f)); FilterChip(kind == OfferKind.REQUEST, { kind = OfferKind.REQUEST }, label = { Text("درخواست تأمین") }, modifier = Modifier.weight(1f)) }; Field(if (kind == OfferKind.REQUEST) "ماده موردنیاز" else "نام ماده", name) { name = it };', 1)
-s = s.replace('Field("قیمت رسمی تأمین‌کننده", official) { official = it }; Field("قیمت غیررسمی تأمین‌کننده", market) { market = it };', 'if (kind == OfferKind.SALE) { Field("قیمت رسمی تأمین‌کننده", official) { official = it }; Field("قیمت غیررسمی تأمین‌کننده", market) { market = it } }', 1)
-s = s.replace('Field("نام فروشنده (فقط مدیریت)", supplier) { supplier = it };', 'if (kind == OfferKind.SALE) Field("نام فروشنده (فقط مدیریت)", supplier) { supplier = it };', 1)
+s = s.replace('Field("قیمت رسمی تأمین‌کننده", official) { official = it }; Field("قیمت غیررسمی تأمین‌کننده", market) { market = it };', 'if (kind == OfferKind.SALE) { Field("قیمت رسمی تأمین‌کننده", official) { official = it }; Field("قیمت غیررسمی تأمین‌کننده", market) { market = it } } else { Spacer(Modifier.height(0.dp)) }', 1)
+s = s.replace('Field("نام فروشنده (فقط مدیریت)", supplier) { supplier = it };', 'if (kind == OfferKind.SALE) { Field("نام فروشنده (فقط مدیریت)", supplier) { supplier = it } } else { Spacer(Modifier.height(0.dp)) };', 1)
 s = s.replace('submit(Offer(id = old?.id ?: 0, name = name,', 'submit(Offer(id = old?.id ?: 0, kind = kind, name = name,', 1)
 
 # Management review labels request ads and permits approval without a sale price.
