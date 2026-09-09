@@ -3,21 +3,38 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- ChemLink final brand mark: silver ribbon + blue chemical droplet -->
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#0AAFEF"
-        android:strokeWidth="13"
+        android:strokeColor="#9FB2C2"
+        android:strokeWidth="10"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
-        android:pathData="M16,63 C16,37 37,25 52,40 L66,54 L52,68 C37,83 16,71 16,63" />
+        android:pathData="M56,12 C73,22 87,35 87,53 C87,75 72,91 54,94 C37,96 20,84 18,68 C16,53 25,42 38,38 C49,35 58,40 63,48" />
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#B9C7D3"
-        android:strokeWidth="13"
+        android:strokeColor="#168FD0"
+        android:strokeWidth="10"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
-        android:pathData="M92,45 C92,71 71,83 56,68 L42,54 L56,40 C71,25 92,37 92,45" />
+        android:pathData="M52,94 C33,90 21,77 21,61 C21,45 32,33 47,29 C60,26 73,32 78,42 C82,51 78,61 69,68 C61,74 52,75 44,70" />
     <path
-        android:fillColor="#0AAFEF"
-        android:pathData="M48,54 C48,49 53,44 58,39 C63,44 68,49 68,54 C68,62 63,67 58,67 C53,67 48,62 48,54 Z" />
+        android:fillColor="#00000000"
+        android:strokeColor="#D7E0E7"
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:pathData="M48,28 C53,20 56,15 56,10" />
+    <path
+        android:fillColor="#B8C9D6"
+        android:pathData="M51,5 C51,2.2 53.2,0 56,0 C58.8,0 61,2.2 61,5 C61,7.8 58.8,10 56,10 C53.2,10 51,7.8 51,5 Z" />
+    <path
+        android:fillColor="#079FE3"
+        android:pathData="M52,73 C44,67 40,60 42,53 C44,46 50,40 56,33 C62,40 68,46 69,53 C71,62 65,70 58,73 C56,74 54,74 52,73 Z" />
+    <path
+        android:fillColor="#0A75B8"
+        android:pathData="M56,33 C62,40 68,46 69,53 C70,59 67,65 62,69 C59,71 57,72 54,72 C59,64 61,56 59,49 C58,44 55,39 56,33 Z" />
+    <path
+        android:fillColor="#7DDCFF"
+        android:alpha="0.8"
+        android:pathData="M50,48 C47,53 47,58 50,62 C52,64 54,65 56,65 C52,60 52,54 50,48 Z" />
 </vector>
