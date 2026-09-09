@@ -44,6 +44,9 @@ jobs:
       - name: Apply ChemLink product flow and final UI polish
         run: python3 scripts/apply-final-product-polish.py
 
+      - name: Stabilize final offer form
+        run: python3 scripts/fix-final-form.py
+
       - name: Apply ChemLink visual theme
         run: python3 scripts/apply-brand-theme.py
 
