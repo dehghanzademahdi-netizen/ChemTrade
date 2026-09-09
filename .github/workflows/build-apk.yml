@@ -41,6 +41,9 @@ jobs:
       - name: Apply persistent backup
         run: python3 scripts/fix-persistent-backup.py
 
+      - name: Apply ChemLink visual theme
+        run: python3 scripts/apply-brand-theme.py
+
       - name: Verify JVM target configuration
         run: |
           grep -q 'options.release.set(17)' app/build.gradle.kts
