@@ -1,0 +1,8 @@
+{
+  "rules": {
+    "chemlinkSnapshot": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}
