@@ -33,10 +33,6 @@ java {
     }
 }
 
-tasks.withType<JavaCompile>().configureEach {
-    options.release.set(17)
-}
-
 kotlin {
     jvmToolchain(17)
     compilerOptions {
