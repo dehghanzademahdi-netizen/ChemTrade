@@ -46,7 +46,8 @@ jobs:
 
       - name: Verify JVM target configuration
         run: |
-          grep -q 'options.release.set(17)' app/build.gradle.kts
+          grep -q 'sourceCompatibility = JavaVersion.VERSION_17' app/build.gradle.kts
+          grep -q 'targetCompatibility = JavaVersion.VERSION_17' app/build.gradle.kts
           grep -q 'JVM_17' app/build.gradle.kts
 
       - name: Set up Gradle
