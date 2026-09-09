@@ -41,18 +41,39 @@ jobs:
       - name: Apply persistent backup
         run: python3 scripts/fix-persistent-backup.py
 
-      - name: Fix PersistentBackup Kotlin inference
+      - name: Fix PersistentBackup restore ByteArray inference
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
           p = Path('app/src/main/java/com/dehghanzadeh/chemtrade/PersistentBackup.kt')
           t = p.read_text(encoding='utf-8')
-          old = 'val text = bytes?.let(::decrypt) ?: return false\n            val root = JSONObject(text)'
-          new = 'val decrypted = bytes?.let { data -> decrypt(data) }\n            if (decrypted == null) return false\n            val root = JSONObject(decrypted)'
-          if old not in t:
-              raise SystemExit('PersistentBackup restore marker not found')
-          p.write_text(t.replace(old, new, 1), encoding='utf-8')
-          print('PERSISTENT BACKUP KOTLIN FIX OK')
+          start = t.index('            val bytes = if (Build.VERSION.SDK_INT >= 29) {', t.index('fun restore('))
+          end = t.index('            val root = JSONObject(text)', start)
+          replacement = '''            val bytes: ByteArray? = if (Build.VERSION.SDK_INT >= 29) {
+                val resolver = context.contentResolver
+                val cursor = resolver.query(
+                    MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                    arrayOf(MediaStore.Downloads._ID),
+                    "${MediaStore.Downloads.DISPLAY_NAME}=? AND ${MediaStore.Downloads.RELATIVE_PATH}=?",
+                    arrayOf(FILE_NAME, RELATIVE_PATH),
+                    "${MediaStore.Downloads.DATE_MODIFIED} DESC"
+                )
+                val uri = cursor?.use { c ->
+                    if (c.moveToFirst()) {
+                        Uri.withAppendedPath(
+                            MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                            c.getLong(0).toString()
+                        )
+                    } else null
+                }
+                if (uri == null) null else resolver.openInputStream(uri)?.readBytes()
+            } else null
+            val text = decrypt(bytes ?: return false) ?: return false
+'''
+          t = t[:start] + replacement + t[end:]
+          p.write_text(t, encoding='utf-8')
+          print('PERSISTENT BACKUP RESTORE FIX OK')
           PY
 
       - name: Apply ChemLink visual theme
