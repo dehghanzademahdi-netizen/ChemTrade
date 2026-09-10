@@ -56,6 +56,9 @@ jobs:
       - name: Apply ChemLink visual theme
         run: python3 scripts/apply-brand-theme.py
 
+      - name: Restore phone SMS composer for temporary testing
+        run: python3 scripts/restore-phone-sms-for-testing.py
+
       - name: Verify JVM target configuration
         run: |
           grep -q 'sourceCompatibility = JavaVersion.VERSION_17' app/build.gradle.kts
