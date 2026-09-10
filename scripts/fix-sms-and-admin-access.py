@@ -6,98 +6,90 @@ entry = ROOT / "java/com/dehghanzadeh/chemtrade/EntryActivity.kt"
 main = ROOT / "java/com/dehghanzadeh/chemtrade/MainActivity.kt"
 manifest = ROOT / "AndroidManifest.xml"
 
-# Consumer flow: remove SMS-specific permission imports; use system SMS composer.
-def clean_entry(text):
-    for imp in [
-        "import android.Manifest\n", "import android.content.pm.PackageManager\n", "import android.telephony.SmsManager\n",
-        "import androidx.activity.compose.rememberLauncherForActivityResult\n", "import androidx.activity.result.contract.ActivityResultContracts\n", "import androidx.core.content.ContextCompat\n",
-    ]:
-        text = text.replace(imp, "")
-    return text
+# The app is currently distributed as a direct APK, so use the phone's SMS
+# capability instead of opening a composer. Keep the runtime permission flow.
+e = entry.read_text(encoding="utf-8")
+if "import android.Manifest\n" not in e:
+    e = e.replace("package com.dehghanzadeh.chemtrade\n", "package com.dehghanzadeh.chemtrade\n\nimport android.Manifest\n", 1)
+if "import android.content.pm.PackageManager\n" not in e:
+    e = e.replace("import android.content.Context\n", "import android.content.Context\nimport android.content.pm.PackageManager\n", 1)
+if "import android.telephony.SmsManager\n" not in e:
+    e = e.replace("import android.os.Bundle\n", "import android.os.Bundle\nimport android.telephony.SmsManager\n", 1)
+if "import androidx.activity.compose.rememberLauncherForActivityResult\n" not in e:
+    e = e.replace("import androidx.activity.compose.setContent\n", "import androidx.activity.compose.setContent\nimport androidx.activity.compose.rememberLauncherForActivityResult\n", 1)
+if "import androidx.activity.result.contract.ActivityResultContracts\n" not in e:
+    e = e.replace("import androidx.activity.result.contract.ActivityResultContracts\n", "import androidx.activity.result.contract.ActivityResultContracts\n", 1)
+if "import androidx.core.content.ContextCompat\n" not in e:
+    e = e.replace("import androidx.compose.ui.unit.dp\n", "import androidx.compose.ui.unit.dp\nimport androidx.core.content.ContextCompat\n", 1)
 
-e = clean_entry(entry.read_text(encoding="utf-8"))
-if "import android.net.Uri\n" not in e:
-    e = e.replace("import android.content.Intent\n", "import android.content.Intent\nimport android.net.Uri\n", 1)
-start = e.find("    fun sendVerificationSms(")
-if start < 0: start = e.find("    fun prepareVerificationSms(")
-surface = e.find("    Surface(modifier = Modifier.fillMaxSize(), color = EntryCream) {", start)
-if start < 0 or surface < 0: raise SystemExit("Entry auth markers not found")
-entry_auth = '''    fun prepareVerificationSms(targetPhone: String, verificationCode: String) {
-        val message = "ChemLink - کد تأیید ورود: $verificationCode - این کد را در اختیار دیگران قرار ندهید."
-        try {
-            val intent = Intent(Intent.ACTION_SENDTO).apply {
-                data = Uri.parse("smsto:$targetPhone")
-                putExtra("sms_body", message)
-            }
-            context.startActivity(intent)
-            sending = false
-            step = 2
-            error = "پیامک آماده شد؛ دکمه ارسال را در برنامه پیامک بزنید."
-        } catch (_: Exception) {
-            sending = false
-            error = "برنامه پیامک روی گوشی پیدا نشد."
-        }
+# Restore the direct SMS sender if an earlier patch replaced it with a composer.
+start = e.find("    fun prepareVerificationSms(")
+if start >= 0:
+    end = e.find("\n    fun requestOtp()", start)
+    if end >= 0:
+        direct = '''    fun sendVerificationSms(targetPhone: String, verificationCode: String) {
+        val message = "ChemLink\\nکد تأیید ورود به حساب: $verificationCode\\nاین پیامک برای تأیید حساب کاربری ChemLink است. کد را در اختیار دیگران قرار ندهید."
+        @Suppress("DEPRECATION")
+        val manager = SmsManager.getDefault()
+        val parts = manager.divideMessage(message)
+        if (parts.size == 1) manager.sendTextMessage(targetPhone, null, message, null, null)
+        else manager.sendMultipartTextMessage(targetPhone, null, parts, null, null)
     }
-
-    fun requestOtp() {
-        phone = normalizeDigits(phone).filter(Char::isDigit).take(11)
-        if (phone.length != 11 || !phone.startsWith("09")) {
-            error = "لطفاً شماره موبایل ۱۱ رقمی را درست وارد کنید."
-            return
-        }
-        error = ""
-        val existing = loadRegisteredUser(context, phone)
-        if (existing != null) accountType = existing.type
-        val otp = SecureRandom().nextInt(900000).plus(100000).toString()
-        expectedCode = otp
-        sending = true
-        prepareVerificationSms(phone, otp)
-    }
-
 '''
-e = e[:start] + entry_auth + e[surface:]
-e = re.sub(r'try \{\s*sendVerificationSms\(phone, otp\)\s*\}\s*catch \([^)]*\)\s*\{[^}]*\}', 'prepareVerificationSms(phone, otp)', e, count=1, flags=re.S)
+        e = e[:start] + direct + e[end:]
+
+# If the original sender is already present, leave it intact. Ensure requestOtp
+# calls it after the runtime permission is granted.
+e = e.replace("prepareVerificationSms(phone, expectedCode)", "sendVerificationSms(phone, expectedCode)")
+e = e.replace("prepareVerificationSms(phone, otp)", "sendVerificationSms(phone, otp)")
 entry.write_text(e, encoding="utf-8")
 
-# MainActivity: preserve image picker imports, remove SMS permission imports only.
 m = main.read_text(encoding="utf-8")
-for imp in ["import android.Manifest\n", "import android.content.pm.PackageManager\n", "import android.telephony.SmsManager\n", "import androidx.core.content.ContextCompat\n"]:
-    m = m.replace(imp, "")
-if "import android.net.Uri\n" not in m:
-    m = m.replace("import android.content.Intent\n", "import android.content.Intent\nimport android.net.Uri\n", 1)
-if "import androidx.compose.foundation.combinedClickable\n" not in m:
-    m = m.replace("import androidx.compose.foundation.clickable\n", "import androidx.compose.foundation.clickable\nimport androidx.compose.foundation.combinedClickable\n", 1)
-if "import androidx.compose.foundation.ExperimentalFoundationApi\n" not in m:
-    m = m.replace("import androidx.compose.foundation.Image\n", "import androidx.compose.foundation.Image\nimport androidx.compose.foundation.ExperimentalFoundationApi\n", 1)
+for imp, marker in [
+    ("import android.Manifest\n", "import android.content.Context\n"),
+    ("import android.content.pm.PackageManager\n", "import android.content.Context\n"),
+    ("import android.telephony.SmsManager\n", "import android.os.Bundle\n"),
+    ("import androidx.core.content.ContextCompat\n", "import androidx.compose.ui.unit.dp\n"),
+]:
+    if imp not in m:
+        m = m.replace(marker, marker + imp, 1)
 
+# Admin login: password first, then send a fresh OTP automatically from the
+# management phone, then verify the six-digit code.
 admin_sender = '''    fun sendAdminOtp() {
         val otp = SecureRandom().nextInt(900000).plus(100000).toString()
         expected = otp
-        val sms = "ChemLink - کد ورود مدیریت: $otp - این کد را در اختیار دیگران قرار ندهید."
+        val sms = "ChemLink | کد ورود مدیریت: $otp\\nاین کد را در اختیار دیگران قرار ندهید."
         try {
-            val intent = Intent(Intent.ACTION_SENDTO).apply {
-                data = Uri.parse("smsto:$ADMIN_PHONE")
-                putExtra("sms_body", sms)
-            }
-            context.startActivity(intent)
+            @Suppress("DEPRECATION")
+            val manager = SmsManager.getDefault()
+            val parts = manager.divideMessage(sms)
+            if (parts.size == 1) manager.sendTextMessage(ADMIN_PHONE, null, sms, null, null)
+            else manager.sendMultipartTextMessage(ADMIN_PHONE, null, parts, null, null)
             step = 2
-            message = "پیامک آماده شد؛ دکمه ارسال را بزنید و سپس به ChemLink برگردید."
+            message = "کد ورود به شماره مدیریت ارسال شد."
             error = ""
-        } catch (_: Exception) {
-            error = "برنامه پیامک روی گوشی پیدا نشد."
+        } catch (e: Exception) {
+            error = "ارسال پیامک ناموفق بود: ${e.message ?: "خطای سیم‌کارت یا مجوز SMS"}"
         }
         sending = false
     }
 '''
-m, n = re.subn(r'    fun sendAdminOtp\(\)\s*\{.*?^    \}\n', admin_sender, m, count=1, flags=re.S|re.M)
-if n != 1: raise SystemExit("Admin OTP function not found")
-# Remove only the admin permission launcher, leaving the image picker intact.
-m = re.sub(r'\n\s*val permissionLauncher\s*=\s*rememberLauncherForActivityResult\([\s\S]*?\)\s*(?=\n\s*AlertDialog)', '\n', m, count=1)
-m = re.sub(r'\n\s*val permissionLauncher\s*=\s*rememberLauncherForActivityResult[^\n]*', '\n', m, count=1)
-m = re.sub(r'if \(ContextCompat\.checkSelfPermission\(context, Manifest\.permission\.SEND_SMS\) == PackageManager\.PERMISSION_GRANTED\)\s*sendAdminOtp\(\)\s*else\s*permissionLauncher\.launch\(Manifest\.permission\.SEND_SMS\)', 'sendAdminOtp()', m, count=1)
-m = m.replace('permissionLauncher.launch(Manifest.permission.SEND_SMS)', 'sendAdminOtp()')
+start = m.find("    fun sendAdminOtp()")
+if start >= 0:
+    end = m.find("\n    val permissionLauncher", start)
+    if end >= 0:
+        m = m[:start] + admin_sender + m[end:]
 
-# Reliable hidden admin entry: long-press the logo.
+# Ensure admin's permission callback really calls the direct sender.
+m = m.replace("val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> if (granted) sendAdminOtp() else { sending = false; error = \"مجوز ارسال پیامک داده نشد.\" } }", "val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> if (granted) sendAdminOtp() else { sending = false; error = \"مجوز ارسال پیامک داده نشد.\" } }")
+
+# Keep the hidden long-press admin entry point (five seconds) on the brand logo.
+if "combinedClickable" not in m:
+    m = m.replace("import androidx.compose.foundation.clickable\n", "import androidx.compose.foundation.clickable\nimport androidx.compose.foundation.combinedClickable\n", 1)
+if "ExperimentalFoundationApi" not in m:
+    m = m.replace("import androidx.compose.foundation.Image\n", "import androidx.compose.foundation.Image\nimport androidx.compose.foundation.ExperimentalFoundationApi\n", 1)
+
 hs = m.find("@Composable\nprivate fun HiddenAdminBrand")
 he = m.find("@Composable\nprivate fun AdminDashboard", hs)
 if hs >= 0 and he >= 0:
@@ -117,14 +109,19 @@ private fun HiddenAdminBrand(onUnlock: () -> Unit) {
 '''
     m = m[:hs] + hidden + m[he:]
 
+# Header logo is also a hidden admin entry point without showing a management label.
 m = m.replace('Image(painterResource(R.drawable.ic_chemtrade_logo), "ChemLink", Modifier.size(34.dp))', 'Image(painterResource(R.drawable.ic_chemtrade_logo), "ChemLink", Modifier.size(44.dp).combinedClickable(onClick = {}, onLongClick = { showAdminLogin = true }))', 1)
-if 'combinedClickable(onClick = {}, onLongClick = { showAdminLogin = true })' in m:
-    m = re.sub(r'(?m)^(@Composable\n(?:private )?fun MainScreen)', r'@OptIn(ExperimentalFoundationApi::class)\n\1', m, count=1)
+if 'combinedClickable(onClick = {}, onLongClick = { showAdminLogin = true })' in m and '@OptIn(ExperimentalFoundationApi::class)' not in m[:m.find('@Composable\nprivate fun MainScreen')]:
+    marker = '@Composable\nprivate fun MainScreen'
+    m = m.replace(marker, '@OptIn(ExperimentalFoundationApi::class)\n' + marker, 1)
 
 main.write_text(m, encoding="utf-8")
 
-# Manifest: no SEND_SMS.
+# Direct SMS requires SEND_SMS to be declared. This is intentionally kept for
+# the direct APK distribution/testing flow; no SMS is sent until the user taps
+# the OTP action and grants the Android permission.
 a = manifest.read_text(encoding="utf-8")
-a = re.sub(r'\n\s*<uses-permission android:name="android\.permission\.SEND_SMS"\s*/>', '', a)
+if 'android.permission.SEND_SMS' not in a:
+    a = a.replace('<uses-permission android:name="android.permission.INTERNET" />', '<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.SEND_SMS" />', 1)
 manifest.write_text(a, encoding="utf-8")
 print("FINAL SMS/ADMIN PATCH OK")
