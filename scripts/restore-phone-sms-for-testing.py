@@ -6,9 +6,7 @@ entry = ROOT / "java/com/dehghanzadeh/chemtrade/EntryActivity.kt"
 main = ROOT / "java/com/dehghanzadeh/chemtrade/MainActivity.kt"
 manifest = ROOT / "AndroidManifest.xml"
 
-# Temporary testing mode: let the phone's own SMS app compose the OTP.
-# This avoids SEND_SMS runtime permission and keeps the SMS gateway for later.
-
+# Temporary testing mode for EntryActivity: let the phone's own SMS app compose the OTP.
 e = entry.read_text(encoding="utf-8")
 for imp in [
     "import android.Manifest\n",
@@ -43,7 +41,7 @@ if start >= 0:
     if end >= 0:
         e = e[:start] + send_fn + e[end:]
 
-# Replace requestOtp with a no-permission phone-SMS flow.
+# Replace requestOtp with a no-permission phone-SMS composer flow.
 start = e.find("    fun requestOtp()")
 if start >= 0:
     end = e.find("\n    Surface(modifier = Modifier.fillMaxSize(), color = EntryCream) {", start)
@@ -65,20 +63,22 @@ if start >= 0:
 '''
         e = e[:start] + request_fn + e[end:]
 
-# Resend must use the same SMS composer and not call the removed direct sender.
 e = e.replace("sendVerificationSms(phone, otp)", "prepareVerificationSms(phone, otp)")
 e = e.replace("sendVerificationSms(phone, expectedCode)", "prepareVerificationSms(phone, expectedCode)")
 entry.write_text(e, encoding="utf-8")
 
-# Admin OTP: use the same phone SMS composer temporarily.
+# Admin OTP remains a direct SMS flow. Keep the imports because MainActivity
+# still requests SEND_SMS permission before sending the admin OTP.
 m = main.read_text(encoding="utf-8")
-for imp in [
-    "import android.Manifest\n",
-    "import android.content.pm.PackageManager\n",
-    "import android.telephony.SmsManager\n",
-    "import androidx.core.content.ContextCompat\n",
-]:
-    m = m.replace(imp, "")
+required_main_imports = [
+    ("import android.Manifest\n", "import android.content.Context\n"),
+    ("import android.content.pm.PackageManager\n", "import android.content.Context\n"),
+    ("import android.telephony.SmsManager\n", "import android.os.Bundle\n"),
+    ("import androidx.core.content.ContextCompat\n", "import androidx.compose.ui.unit.dp\n"),
+]
+for imp, marker in required_main_imports:
+    if imp not in m and marker in m:
+        m = m.replace(marker, marker + imp, 1)
 
 start = m.find("    fun sendAdminOtp()")
 if start >= 0:
@@ -89,29 +89,29 @@ if start >= 0:
         expected = otp
         val sms = "ChemLink | کد ورود مدیریت: $otp\\nاین کد را در اختیار دیگران قرار ندهید."
         try {
-            val intent = Intent(Intent.ACTION_SENDTO).apply {
-                data = android.net.Uri.parse("smsto:$ADMIN_PHONE")
-                putExtra("sms_body", sms)
-            }
-            context.startActivity(intent)
+            @Suppress("DEPRECATION")
+            val manager = SmsManager.getDefault()
+            val parts = manager.divideMessage(sms)
+            if (parts.size == 1) manager.sendTextMessage(ADMIN_PHONE, null, sms, null, null)
+            else manager.sendMultipartTextMessage(ADMIN_PHONE, null, parts, null, null)
             step = 2
-            message = "پیامک آماده شد؛ دکمه ارسال را در برنامه پیامک بزنید."
+            message = "کد ورود به شماره مدیریت ارسال شد."
             error = ""
         } catch (e: Exception) {
-            error = "برنامه پیامک روی گوشی پیدا نشد."
+            error = "ارسال پیامک ناموفق بود: ${e.message ?: "خطای سیم‌کارت یا مجوز SMS"}"
         }
         sending = false
     }
 '''
         m = m[:start] + admin_fn + m[end:]
 
-# Remove any admin permission launcher left by previous patches.
 m = re.sub(r'\n    val permissionLauncher = rememberLauncherForActivityResult\(ActivityResultContracts\.RequestPermission\(\)\) \{.*?\n    \}\n', '\n', m, flags=re.S)
 main.write_text(m, encoding="utf-8")
 
-# No SEND_SMS permission is needed for ACTION_SENDTO.
+# Keep SEND_SMS declared for the admin direct-SMS testing flow.
 a = manifest.read_text(encoding="utf-8")
-a = re.sub(r'\s*<uses-permission android:name="android.permission.SEND_SMS"\s*/>', '', a)
+if 'android.permission.SEND_SMS' not in a:
+    a = a.replace('<uses-permission android:name="android.permission.INTERNET" />', '<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.SEND_SMS" />', 1)
 manifest.write_text(a, encoding="utf-8")
 
-print("RESTORED PHONE SMS COMPOSER MODE")
+print("SMS FLOW PATCH OK")
