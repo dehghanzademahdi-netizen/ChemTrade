@@ -59,6 +59,21 @@ jobs:
       - name: Restore phone SMS composer for temporary testing
         run: python3 scripts/restore-phone-sms-for-testing.py
 
+      - name: Repair malformed Kotlin SMS literal
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/dehghanzadeh/chemtrade/MainActivity.kt')
+          s = p.read_text(encoding='utf-8')
+          old = '$otp\\\nاین کد را در اختیار دیگران قرار ندهید.'
+          new = '$otp\\nاین کد را در اختیار دیگران قرار ندهید.'
+          if old in s:
+              s = s.replace(old, new)
+          else:
+              raise SystemExit('Expected malformed SMS literal was not found')
+          p.write_text(s, encoding='utf-8')
+          PY
+
       - name: Verify JVM target configuration
         run: |
           grep -q 'sourceCompatibility = JavaVersion.VERSION_17' app/build.gradle.kts
