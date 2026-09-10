@@ -87,7 +87,7 @@ if start >= 0:
         admin_fn = '''    fun sendAdminOtp() {
         val otp = SecureRandom().nextInt(900000).plus(100000).toString()
         expected = otp
-        val sms = "ChemLink | کد ورود مدیریت: $otp\nاین کد را در اختیار دیگران قرار ندهید."
+        val sms = "ChemLink | کد ورود مدیریت: $otp\\nاین کد را در اختیار دیگران قرار ندهید."
         try {
             val intent = Intent(Intent.ACTION_SENDTO).apply {
                 data = android.net.Uri.parse("smsto:$ADMIN_PHONE")
