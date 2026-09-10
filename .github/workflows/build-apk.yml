@@ -59,18 +59,30 @@ jobs:
       - name: Restore phone SMS composer for temporary testing
         run: python3 scripts/restore-phone-sms-for-testing.py
 
-      - name: Repair malformed Kotlin SMS literal
+      - name: Repair admin SMS Kotlin source
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
           p = Path('app/src/main/java/com/dehghanzadeh/chemtrade/MainActivity.kt')
           s = p.read_text(encoding='utf-8')
-          old = '$otp' + '\\' + '\n'
-          new = '$otp' + '\\n'
-          if old not in s:
-              raise SystemExit('Expected malformed SMS literal was not found')
-          p.write_text(s.replace(old, new), encoding='utf-8')
-          print('Malformed SMS literal repaired')
+          pattern = r'val sms = "ChemLink \| کد ورود مدیریت: \$otp.*?"; val parts = manager\.divideMessage\(sms\)'
+          replacement = r'val sms = "ChemLink | کد ورود مدیریت: $otp\nاین کد را در اختیار دیگران قرار ندهید."; val parts = manager.divideMessage(sms)'
+          s2, count = re.subn(pattern, replacement, s, count=1, flags=re.DOTALL)
+          if count != 1:
+              raise SystemExit(f'Admin SMS source pattern not found (matches={count})')
+          p.write_text(s2, encoding='utf-8')
+          print('Admin SMS Kotlin source repaired')
+          PY
+
+      - name: Verify admin SMS source
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('app/src/main/java/com/dehghanzadeh/chemtrade/MainActivity.kt').read_text(encoding='utf-8')
+          if 'val sms = "ChemLink | کد ورود مدیریت: $otp\\nاین کد را در اختیار دیگران قرار ندهید."' not in s:
+              raise SystemExit('Admin SMS literal verification failed')
+          print('Admin SMS source verification passed')
           PY
 
       - name: Verify JVM target configuration
