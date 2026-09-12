@@ -1,5 +1,4 @@
 from pathlib import Path
-import re
 
 PKG = Path('app/src/main/java/com/dehghanzadeh/chemtrade')
 M = PKG / 'MainActivity.kt'
@@ -7,15 +6,13 @@ E = PKG / 'EntryActivity.kt'
 C = PKG / 'CloudStore.kt'
 
 # 1) Replace the admin login dialog with the same runtime SEND_SMS permission
-# flow used by the customer login. Password is checked first, then Android asks
-# for SEND_SMS, and only after permission is granted is the OTP sent.
+# flow used by the customer login.
 m = M.read_text(encoding='utf-8')
 start = m.find('@Composable\nprivate fun AdminLoginDialog')
 if start < 0:
     raise SystemExit('AdminLoginDialog not found')
 next_pos = m.find('\n@Composable', start + 10)
-if next_pos < 0:
-    raise SystemExit('AdminLoginDialog end not found')
+end = len(m) if next_pos < 0 else next_pos
 admin = r'''@Composable
 private fun AdminLoginDialog(onClose: () -> Unit, onSuccess: () -> Unit) {
     val context = LocalContext.current
@@ -61,21 +58,10 @@ private fun AdminLoginDialog(onClose: () -> Unit, onSuccess: () -> Unit) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (step == 0) {
                     Text("رمز مدیریت را وارد کنید.")
-                    OutlinedTextField(
-                        value = password,
-                        onValueChange = { password = it },
-                        singleLine = true,
-                        label = { Text("رمز مدیریت") },
-                        visualTransformation = PasswordVisualTransformation()
-                    )
+                    OutlinedTextField(value = password, onValueChange = { password = it }, singleLine = true, label = { Text("رمز مدیریت") }, visualTransformation = PasswordVisualTransformation())
                 } else {
                     Text("کد تأیید به شماره مدیریت ارسال شد.")
-                    OutlinedTextField(
-                        value = otp,
-                        onValueChange = { otp = digits(it).filter(Char::isDigit).take(6) },
-                        singleLine = true,
-                        label = { Text("کد پیامکی") }
-                    )
+                    OutlinedTextField(value = otp, onValueChange = { otp = digits(it).filter(Char::isDigit).take(6) }, singleLine = true, label = { Text("کد پیامکی") })
                 }
                 if (message.isNotBlank()) Text(message, color = Green)
                 if (error.isNotBlank()) Text(error, color = Red)
@@ -88,17 +74,11 @@ private fun AdminLoginDialog(onClose: () -> Unit, onSuccess: () -> Unit) {
                         error = "رمز مدیریت صحیح نیست."
                         return@Button
                     }
-                    error = ""
-                    message = ""
-                    sending = true
-                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED) {
-                        sendAdminOtp()
-                    } else {
-                        permissionLauncher.launch(Manifest.permission.SEND_SMS)
-                    }
+                    error = ""; message = ""; sending = true
+                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED) sendAdminOtp()
+                    else permissionLauncher.launch(Manifest.permission.SEND_SMS)
                 } else {
-                    if (otp == expected && expected.isNotBlank()) onSuccess()
-                    else error = "کد واردشده صحیح نیست."
+                    if (otp == expected && expected.isNotBlank()) onSuccess() else error = "کد واردشده صحیح نیست."
                 }
             }) { Text(if (step == 0) "ادامه" else "ورود به مدیریت") }
         },
@@ -106,28 +86,25 @@ private fun AdminLoginDialog(onClose: () -> Unit, onSuccess: () -> Unit) {
     )
 }
 '''
-m = m[:start] + admin + m[next_pos:]
+m = m[:start] + admin + m[end:]
 M.write_text(m, encoding='utf-8')
 
-# 2) Customer must verify by SMS every login, but an existing account must never
-# ask for its profile again. Keep the last phone number prefilled for convenience.
+# 2) Customer verifies by SMS on every fresh app launch, but existing accounts
+# go directly to the app after OTP without re-entering their profile.
 e = E.read_text(encoding='utf-8')
 old = '''        val prefs = getSharedPreferences("chemlink", Context.MODE_PRIVATE)\n        if (prefs.getString("phone", "").orEmpty().isNotBlank()) {\n            startActivity(Intent(this, MainActivity::class.java))\n            finish()\n            return\n        }\n        setContent { ChemLinkEntryApp() }'''
 new = '''        val prefs = getSharedPreferences("chemlink", Context.MODE_PRIVATE)\n        if (CloudStore.enabled()) runBlocking { CloudStore.pull(prefs) }\n        setContent { ChemLinkEntryApp() }'''
-if old in e:
-    e = e.replace(old, new, 1)
-else:
+if old not in e:
     raise SystemExit('EntryActivity session bypass block not found')
+e = e.replace(old, new, 1)
 old = 'var phone by rememberSaveable { mutableStateOf("") }'
 new = 'var phone by rememberSaveable { mutableStateOf(context.getSharedPreferences("chemlink", Context.MODE_PRIVATE).getString("phone", "").orEmpty()) }'
 if old in e:
     e = e.replace(old, new, 1)
-# Existing accounts should be restored from cloud/local and go straight to the app
-# after OTP verification; only genuinely new accounts see ProfileScreen.
 E.write_text(e, encoding='utf-8')
 
-# 3) Make the Firebase snapshot merge instead of last-writer-wins replacement.
-# This prevents one phone/device from deleting other customers or their ads.
+# 3) Firebase snapshot is merged on both pull and push, so accounts and ads from
+# different phones are retained instead of being overwritten by the last device.
 c = C.read_text(encoding='utf-8')
 start = c.find('object CloudStore {')
 if start < 0:
@@ -135,7 +112,6 @@ if start < 0:
 header = c[:start]
 body = r'''object CloudStore {
     private const val SNAPSHOT = "chemlinkSnapshot"
-
     private fun baseUrl(): String = BuildConfig.CHEMLINK_FIREBASE_DB_URL.trimEnd('/')
     fun enabled(): Boolean = baseUrl().isNotBlank()
 
@@ -161,17 +137,9 @@ body = r'''object CloudStore {
 
     private fun mergeUsers(remote: JSONArray, local: JSONArray): JSONArray {
         val map = linkedMapOf<String, JSONObject>()
-        for (i in 0 until remote.length()) remote.optJSONObject(i)?.let { item ->
-            val phone = item.optString("phone")
-            if (phone.isNotBlank()) map[phone] = item
-        }
-        for (i in 0 until local.length()) local.optJSONObject(i)?.let { item ->
-            val phone = item.optString("phone")
-            if (phone.isNotBlank()) map[phone] = item
-        }
-        val out = JSONArray()
-        map.values.forEach { out.put(it) }
-        return out
+        for (i in 0 until remote.length()) remote.optJSONObject(i)?.let { item -> val phone = item.optString("phone"); if (phone.isNotBlank()) map[phone] = item }
+        for (i in 0 until local.length()) local.optJSONObject(i)?.let { item -> val phone = item.optString("phone"); if (phone.isNotBlank()) map[phone] = item }
+        val out = JSONArray(); map.values.forEach { out.put(it) }; return out
     }
 
     private fun offerKey(item: JSONObject): String {
@@ -183,9 +151,7 @@ body = r'''object CloudStore {
         val map = linkedMapOf<String, JSONObject>()
         for (i in 0 until remote.length()) remote.optJSONObject(i)?.let { map[offerKey(it)] = it }
         for (i in 0 until local.length()) local.optJSONObject(i)?.let { map[offerKey(it)] = it }
-        val out = JSONArray()
-        map.values.forEach { out.put(it) }
-        return out
+        val out = JSONArray(); map.values.forEach { out.put(it) }; return out
     }
 
     suspend fun push(prefs: android.content.SharedPreferences): Boolean {
@@ -193,11 +159,7 @@ body = r'''object CloudStore {
         val remote = request("GET", SNAPSHOT)?.let { runCatching { JSONObject(it) }.getOrNull() }
         val mergedUsers = mergeUsers(array(remote?.optString("users", "[]")), array(prefs.getString("users", "[]")))
         val mergedOffers = mergeOffers(array(remote?.optString("offers", "[]")), array(prefs.getString("offers", "[]")))
-        val payload = JSONObject().apply {
-            put("users", mergedUsers.toString())
-            put("offers", mergedOffers.toString())
-            put("updatedAt", System.currentTimeMillis())
-        }
+        val payload = JSONObject().apply { put("users", mergedUsers.toString()); put("offers", mergedOffers.toString()); put("updatedAt", System.currentTimeMillis()) }
         val ok = request("PUT", SNAPSHOT, payload.toString()) != null
         if (ok) prefs.edit().putString("users", mergedUsers.toString()).putString("offers", mergedOffers.toString()).apply()
         return ok
