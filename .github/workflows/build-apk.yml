@@ -47,9 +47,6 @@ jobs:
       - name: Apply cloud persistence and 30-day expiry
         run: python3 scripts/apply-cloud-and-expiry.py
 
-      - name: Fix admin OTP permission and production persistence
-        run: python3 scripts/fix-production-persistence-and-admin-otp.py
-
       - name: Apply ChemLink product flow and final UI polish
         run: python3 scripts/apply-final-product-polish.py
 
