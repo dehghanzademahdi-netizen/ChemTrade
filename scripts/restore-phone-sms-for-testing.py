@@ -80,32 +80,9 @@ for imp, marker in required_main_imports:
     if imp not in m and marker in m:
         m = m.replace(marker, marker + imp, 1)
 
-start = m.find("    fun sendAdminOtp()")
-if start >= 0:
-    end = m.find("\n    val permissionLauncher", start)
-    if end >= 0:
-        admin_fn = '''    fun sendAdminOtp() {
-        val otp = SecureRandom().nextInt(900000).plus(100000).toString()
-        expected = otp
-        val sms = "ChemLink | کد ورود مدیریت: $otp\\nاین کد را در اختیار دیگران قرار ندهید."
-        try {
-            @Suppress("DEPRECATION")
-            val manager = SmsManager.getDefault()
-            val parts = manager.divideMessage(sms)
-            if (parts.size == 1) manager.sendTextMessage(ADMIN_PHONE, null, sms, null, null)
-            else manager.sendMultipartTextMessage(ADMIN_PHONE, null, parts, null, null)
-            step = 2
-            message = "کد ورود به شماره مدیریت ارسال شد."
-            error = ""
-        } catch (e: Exception) {
-            error = "ارسال پیامک ناموفق بود: ${e.message ?: "خطای سیم‌کارت یا مجوز SMS"}"
-        }
-        sending = false
-    }
-'''
-        m = m[:start] + admin_fn + m[end:]
-
-m = re.sub(r'\n    val permissionLauncher = rememberLauncherForActivityResult\(ActivityResultContracts\.RequestPermission\(\)\) \{.*?\n    \}\n', '\n', m, flags=re.S)
+# Keep the existing AdminLoginDialog permission launcher intact. The previous
+# temporary testing patch removed it, which caused the admin flow to call
+# SmsManager directly without first requesting SEND_SMS at runtime.
 main.write_text(m, encoding="utf-8")
 
 # Keep SEND_SMS declared for the admin direct-SMS testing flow.
