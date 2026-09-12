@@ -1,12 +1,13 @@
 from pathlib import Path
-import re
 
 ROOT = Path("app/src/main")
 entry = ROOT / "java/com/dehghanzadeh/chemtrade/EntryActivity.kt"
 main = ROOT / "java/com/dehghanzadeh/chemtrade/MainActivity.kt"
 manifest = ROOT / "AndroidManifest.xml"
 
-# Temporary testing mode for EntryActivity: let the phone's own SMS app compose the OTP.
+# Both customer and admin OTP now use the phone's own SMS composer.
+# This avoids SEND_SMS runtime permission and therefore avoids the Android
+# permission failure the user was seeing.
 e = entry.read_text(encoding="utf-8")
 for imp in [
     "import android.Manifest\n",
@@ -41,7 +42,6 @@ if start >= 0:
     if end >= 0:
         e = e[:start] + send_fn + e[end:]
 
-# Replace requestOtp with a no-permission phone-SMS composer flow.
 start = e.find("    fun requestOtp()")
 if start >= 0:
     end = e.find("\n    Surface(modifier = Modifier.fillMaxSize(), color = EntryCream) {", start)
@@ -67,28 +67,96 @@ e = e.replace("sendVerificationSms(phone, otp)", "prepareVerificationSms(phone, 
 e = e.replace("sendVerificationSms(phone, expectedCode)", "prepareVerificationSms(phone, expectedCode)")
 entry.write_text(e, encoding="utf-8")
 
-# Admin OTP remains a direct SMS flow. Keep the imports because MainActivity
-# still requests SEND_SMS permission before sending the admin OTP.
+# Admin login must follow the exact same no-permission SMS-composer path.
 m = main.read_text(encoding="utf-8")
-required_main_imports = [
-    ("import android.Manifest\n", "import android.content.Context\n"),
-    ("import android.content.pm.PackageManager\n", "import android.content.Context\n"),
-    ("import android.telephony.SmsManager\n", "import android.os.Bundle\n"),
-    ("import androidx.core.content.ContextCompat\n", "import androidx.compose.ui.unit.dp\n"),
-]
-for imp, marker in required_main_imports:
-    if imp not in m and marker in m:
-        m = m.replace(marker, marker + imp, 1)
+for imp in [
+    "import android.Manifest\n",
+    "import android.content.pm.PackageManager\n",
+    "import android.telephony.SmsManager\n",
+    "import androidx.activity.compose.rememberLauncherForActivityResult\n",
+    "import androidx.activity.result.contract.ActivityResultContracts\n",
+    "import androidx.core.content.ContextCompat\n",
+]:
+    m = m.replace(imp, "")
 
-# Keep the existing AdminLoginDialog permission launcher intact. The previous
-# temporary testing patch removed it, which caused the admin flow to call
-# SmsManager directly without first requesting SEND_SMS at runtime.
+start = m.find("@Composable\nprivate fun AdminLoginDialog")
+if start < 0:
+    raise SystemExit("AdminLoginDialog not found")
+end = m.find("\n@Composable", start + 10)
+if end < 0:
+    end = len(m)
+
+admin = r'''@Composable
+private fun AdminLoginDialog(onClose: () -> Unit, onSuccess: () -> Unit) {
+    val context = LocalContext.current
+    var step by remember { mutableIntStateOf(0) }
+    var password by remember { mutableStateOf("") }
+    var otp by remember { mutableStateOf("") }
+    var expected by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf("") }
+    var message by remember { mutableStateOf("") }
+    var sending by remember { mutableStateOf(false) }
+
+    fun prepareAdminSms(code: String) {
+        val sms = "ChemLink - کد ورود مدیریت: $code - این کد را در اختیار دیگران قرار ندهید."
+        try {
+            val intent = Intent(Intent.ACTION_SENDTO).apply {
+                data = Uri.parse("smsto:$ADMIN_PHONE")
+                putExtra("sms_body", sms)
+            }
+            context.startActivity(intent)
+            sending = false
+            step = 1
+            message = "پیامک ورود مدیریت آماده شد؛ دکمه ارسال را در برنامه پیامک بزنید."
+            error = ""
+        } catch (_: Exception) {
+            sending = false
+            error = "برنامه پیامک روی گوشی پیدا نشد."
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(if (step == 0) "ورود مدیریت" else "تأیید ورود مدیریت") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (step == 0) {
+                    Text("رمز مدیریت را وارد کنید.")
+                    OutlinedTextField(value = password, onValueChange = { password = it }, singleLine = true, label = { Text("رمز مدیریت") }, visualTransformation = PasswordVisualTransformation())
+                } else {
+                    Text("کد تأیید به شماره مدیریت ارسال شد.")
+                    OutlinedTextField(value = otp, onValueChange = { otp = digits(it).filter(Char::isDigit).take(6) }, singleLine = true, label = { Text("کد پیامکی") })
+                }
+                if (message.isNotBlank()) Text(message, color = Green)
+                if (error.isNotBlank()) Text(error, color = Red)
+            }
+        },
+        confirmButton = {
+            Button(enabled = !sending, onClick = {
+                if (step == 0) {
+                    if (hash(password) != ADMIN_HASH) {
+                        error = "رمز مدیریت صحیح نیست."
+                        return@Button
+                    }
+                    val code = SecureRandom().nextInt(900000).plus(100000).toString()
+                    expected = code
+                    sending = true
+                    prepareAdminSms(code)
+                } else {
+                    if (otp == expected && expected.isNotBlank()) onSuccess() else error = "کد واردشده صحیح نیست."
+                }
+            }) { Text(if (step == 0) "ارسال کد ورود" else "ورود به مدیریت") }
+        },
+        dismissButton = { TextButton(onClick = onClose) { Text("انصراف") } }
+    )
+}
+'''
+m = m[:start] + admin + m[end:]
 main.write_text(m, encoding="utf-8")
 
-# Keep SEND_SMS declared for the admin direct-SMS testing flow.
+# SEND_SMS is no longer needed anywhere in the app.
 a = manifest.read_text(encoding="utf-8")
-if 'android.permission.SEND_SMS' not in a:
-    a = a.replace('<uses-permission android:name="android.permission.INTERNET" />', '<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.SEND_SMS" />', 1)
+a = a.replace('    <uses-permission android:name="android.permission.SEND_SMS" />\n', '')
 manifest.write_text(a, encoding="utf-8")
 
-print("SMS FLOW PATCH OK")
+print("CUSTOMER + ADMIN SMS COMPOSER PATCH OK")
