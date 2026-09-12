@@ -38,6 +38,9 @@ jobs:
       - name: Apply SMS and hidden admin fix
         run: python3 scripts/fix-sms-and-admin-access.py
 
+      - name: Fix admin OTP permission and production persistence
+        run: python3 scripts/fix-production-persistence-and-admin-otp.py
+
       - name: Apply business features
         run: python3 scripts/fix-business-features.py
 
