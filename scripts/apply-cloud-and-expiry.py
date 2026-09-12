@@ -6,7 +6,6 @@ E = PKG / 'EntryActivity.kt'
 
 m = M.read_text(encoding='utf-8')
 e = E.read_text(encoding='utf-8')
-
 DAY30 = '30L * 24L * 60L * 60L * 1000L'
 
 old_offer = '''    val publishedOfficial: String = "",\n    val publishedMarket: String = ""\n)'''
@@ -45,7 +44,6 @@ old = '''                Text(offer.name, fontWeight = FontWeight.Bold); Text("�
 new = '''                Text(offer.name, fontWeight = FontWeight.Bold); Text("قیمت رسمی تأمین‌کننده: ${offer.official}"); Text("قیمت بازار تأمین‌کننده: ${offer.market}"); Text("تحویل: ${offer.place} | ${offer.time}")\n                if (offer.expiresAt <= System.currentTimeMillis()) Text("وضعیت: منقضی و بایگانی‌شده", color = Red, fontWeight = FontWeight.Bold)'''
 if old in m:
     m = m.replace(old, new, 1)
-
 old = '''publishedOfficial = old?.publishedOfficial.orEmpty(), publishedMarket = old?.publishedMarket.orEmpty()))'''
 new = '''publishedOfficial = old?.publishedOfficial.orEmpty(), publishedMarket = old?.publishedMarket.orEmpty(), createdAt = old?.createdAt ?: System.currentTimeMillis(), expiresAt = old?.expiresAt ?: (System.currentTimeMillis() + 30L * 24L * 60L * 60L * 1000L)))'''
 if old in m:
@@ -59,11 +57,22 @@ new = '''put("publishedOfficial", o.publishedOfficial); put("publishedMarket", o
 if old in m:
     m = m.replace(old, new, 1)
 
-# Pull the cloud snapshot before checking whether the device already has a session.
+# Pull cloud data before the login screen. Do NOT auto-login from the local phone:
+# every login must receive and verify an SMS OTP.
 if 'kotlinx.coroutines.runBlocking' not in e:
     e = e.replace('import org.json.JSONObject\n', 'import org.json.JSONObject\nimport kotlinx.coroutines.runBlocking\n', 1)
 old = '''val prefs = getSharedPreferences("chemlink", Context.MODE_PRIVATE)\n        PersistentBackup.restore(this, prefs)'''
 new = '''val prefs = getSharedPreferences("chemlink", Context.MODE_PRIVATE)\n        PersistentBackup.restore(this, prefs)\n        if (CloudStore.enabled()) runBlocking { CloudStore.pull(prefs) }'''
+if old in e and 'CloudStore.pull(prefs)' not in e:
+    e = e.replace(old, new, 1)
+
+old = '''        if (prefs.getString("phone", "").orEmpty().isNotBlank()) {\n            startActivity(Intent(this, MainActivity::class.java))\n            finish()\n            return\n        }'''
+if old in e:
+    e = e.replace(old, '', 1)
+
+# Prefill the previously verified phone number so returning users do not re-enter it.
+old = 'var phone by rememberSaveable { mutableStateOf("") }'
+new = 'var phone by rememberSaveable { mutableStateOf(context.getSharedPreferences("chemlink", Context.MODE_PRIVATE).getString("phone", "").orEmpty()) }'
 if old in e:
     e = e.replace(old, new, 1)
 
@@ -75,4 +84,4 @@ if old in e and 'CloudStore.push(prefs)' not in e:
 
 M.write_text(m, encoding='utf-8')
 E.write_text(e, encoding='utf-8')
-print('CLOUD + EXPIRY PATCH OK')
+print('CLOUD + EXPIRY + OTP LOGIN PATCH OK')
