@@ -1,12 +1,6 @@
 from pathlib import Path
 
-PKG = Path('app/src/main/java/com/dehghanzadeh/chemtrade')
-M = PKG / 'MainActivity.kt'
-E = PKG / 'EntryActivity.kt'
-C = PKG / 'CloudStore.kt'
-
-# 1) Replace the admin login dialog with the same runtime SEND_SMS permission
-# flow used by the customer login.
+M = Path('app/src/main/java/com/dehghanzadeh/chemtrade/MainActivity.kt')
 m = M.read_text(encoding='utf-8')
 start = m.find('@Composable\nprivate fun AdminLoginDialog')
 if start < 0:
@@ -37,8 +31,8 @@ private fun AdminLoginDialog(onClose: () -> Unit, onSuccess: () -> Unit) {
             step = 1
             message = "کد ورود مدیریت ارسال شد."
             error = ""
-        } catch (e: Exception) {
-            error = "ارسال پیامک ناموفق بود: ${e.message ?: "خطای سیم‌کارت یا مجوز SMS"}"
+        } catch (_: Exception) {
+            error = "ارسال پیامک ناموفق بود. مجوز SMS یا سیم‌کارت را بررسی کنید."
         }
         sending = false
     }
@@ -86,94 +80,5 @@ private fun AdminLoginDialog(onClose: () -> Unit, onSuccess: () -> Unit) {
     )
 }
 '''
-m = m[:start] + admin + m[end:]
-M.write_text(m, encoding='utf-8')
-
-# 2) Customer verifies by SMS on every fresh app launch, but existing accounts
-# go directly to the app after OTP without re-entering their profile.
-e = E.read_text(encoding='utf-8')
-old = '''        val prefs = getSharedPreferences("chemlink", Context.MODE_PRIVATE)\n        if (prefs.getString("phone", "").orEmpty().isNotBlank()) {\n            startActivity(Intent(this, MainActivity::class.java))\n            finish()\n            return\n        }\n        setContent { ChemLinkEntryApp() }'''
-new = '''        val prefs = getSharedPreferences("chemlink", Context.MODE_PRIVATE)\n        if (CloudStore.enabled()) runBlocking { CloudStore.pull(prefs) }\n        setContent { ChemLinkEntryApp() }'''
-if old not in e:
-    raise SystemExit('EntryActivity session bypass block not found')
-e = e.replace(old, new, 1)
-old = 'var phone by rememberSaveable { mutableStateOf("") }'
-new = 'var phone by rememberSaveable { mutableStateOf(context.getSharedPreferences("chemlink", Context.MODE_PRIVATE).getString("phone", "").orEmpty()) }'
-if old in e:
-    e = e.replace(old, new, 1)
-E.write_text(e, encoding='utf-8')
-
-# 3) Firebase snapshot is merged on both pull and push, so accounts and ads from
-# different phones are retained instead of being overwritten by the last device.
-c = C.read_text(encoding='utf-8')
-start = c.find('object CloudStore {')
-if start < 0:
-    raise SystemExit('CloudStore object not found')
-header = c[:start]
-body = r'''object CloudStore {
-    private const val SNAPSHOT = "chemlinkSnapshot"
-    private fun baseUrl(): String = BuildConfig.CHEMLINK_FIREBASE_DB_URL.trimEnd('/')
-    fun enabled(): Boolean = baseUrl().isNotBlank()
-
-    private suspend fun request(method: String, path: String, body: String? = null): String? = withContext(Dispatchers.IO) {
-        if (!enabled()) return@withContext null
-        runCatching {
-            val connection = (URL("${baseUrl()}/$path.json").openConnection() as HttpURLConnection).apply {
-                requestMethod = method
-                connectTimeout = 10000
-                readTimeout = 15000
-                setRequestProperty("Content-Type", "application/json; charset=utf-8")
-                if (body != null) doOutput = true
-            }
-            body?.let { connection.outputStream.use { out -> out.write(it.toByteArray(Charsets.UTF_8)) } }
-            val stream = if (connection.responseCode in 200..299) connection.inputStream else connection.errorStream
-            val result = stream?.bufferedReader()?.use { it.readText() }
-            connection.disconnect()
-            if (result.isNullOrBlank() || result == "null") null else result
-        }.getOrNull()
-    }
-
-    private fun array(value: String?): JSONArray = runCatching { JSONArray(value ?: "[]") }.getOrDefault(JSONArray())
-
-    private fun mergeUsers(remote: JSONArray, local: JSONArray): JSONArray {
-        val map = linkedMapOf<String, JSONObject>()
-        for (i in 0 until remote.length()) remote.optJSONObject(i)?.let { item -> val phone = item.optString("phone"); if (phone.isNotBlank()) map[phone] = item }
-        for (i in 0 until local.length()) local.optJSONObject(i)?.let { item -> val phone = item.optString("phone"); if (phone.isNotBlank()) map[phone] = item }
-        val out = JSONArray(); map.values.forEach { out.put(it) }; return out
-    }
-
-    private fun offerKey(item: JSONObject): String {
-        val phone = item.optString("phone").ifBlank { item.optString("owner") }
-        return phone + "|" + item.optInt("id", 0) + "|" + item.optLong("createdAt", 0L) + "|" + item.optString("name")
-    }
-
-    private fun mergeOffers(remote: JSONArray, local: JSONArray): JSONArray {
-        val map = linkedMapOf<String, JSONObject>()
-        for (i in 0 until remote.length()) remote.optJSONObject(i)?.let { map[offerKey(it)] = it }
-        for (i in 0 until local.length()) local.optJSONObject(i)?.let { map[offerKey(it)] = it }
-        val out = JSONArray(); map.values.forEach { out.put(it) }; return out
-    }
-
-    suspend fun push(prefs: android.content.SharedPreferences): Boolean {
-        if (!enabled()) return false
-        val remote = request("GET", SNAPSHOT)?.let { runCatching { JSONObject(it) }.getOrNull() }
-        val mergedUsers = mergeUsers(array(remote?.optString("users", "[]")), array(prefs.getString("users", "[]")))
-        val mergedOffers = mergeOffers(array(remote?.optString("offers", "[]")), array(prefs.getString("offers", "[]")))
-        val payload = JSONObject().apply { put("users", mergedUsers.toString()); put("offers", mergedOffers.toString()); put("updatedAt", System.currentTimeMillis()) }
-        val ok = request("PUT", SNAPSHOT, payload.toString()) != null
-        if (ok) prefs.edit().putString("users", mergedUsers.toString()).putString("offers", mergedOffers.toString()).apply()
-        return ok
-    }
-
-    suspend fun pull(prefs: android.content.SharedPreferences): Boolean {
-        val raw = request("GET", SNAPSHOT) ?: return false
-        val payload = runCatching { JSONObject(raw) }.getOrNull() ?: return false
-        val mergedUsers = mergeUsers(array(payload.optString("users", "[]")), array(prefs.getString("users", "[]")))
-        val mergedOffers = mergeOffers(array(payload.optString("offers", "[]")), array(prefs.getString("offers", "[]")))
-        prefs.edit().putString("users", mergedUsers.toString()).putString("offers", mergedOffers.toString()).apply()
-        return true
-    }
-}
-'''
-C.write_text(header + body, encoding='utf-8')
-print('PRODUCTION PERSISTENCE + ADMIN OTP PATCH OK')
+M.write_text(m[:start] + admin + m[end:], encoding='utf-8')
+print('ADMIN OTP PERMISSION PATCH OK')
