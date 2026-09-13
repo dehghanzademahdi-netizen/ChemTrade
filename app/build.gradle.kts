@@ -12,9 +12,9 @@ android {
         applicationId = "com.dehghanzadeh.chemtrade"
         minSdk = 26
         targetSdk = 35
-        versionCode = 9
-        versionName = "0.9.0"
-        buildConfigField("String", "CHEMLINK_FIREBASE_DB_URL", "\"${project.findProperty("chemlinkFirebaseDbUrl") ?: ""}\"")
+        versionCode = 10
+        versionName = "0.9.1"
+        buildConfigField("String", "CHEMLINK_FIREBASE_DB_URL", "\"${project.findProperty("chemlinkFirebaseDbUrl")?.takeIf { it.isNotBlank() } ?: "https://chemlink-8909b-default-rtdb.firebaseio.com"}\"")
     }
 
     compileOptions {
