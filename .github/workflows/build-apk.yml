@@ -59,6 +59,23 @@ jobs:
       - name: Restore phone SMS composer for temporary testing
         run: python3 scripts/restore-phone-sms-for-testing.py
 
+      - name: Restore required document-picker imports and SMS resend reference
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          e = Path('app/src/main/java/com/dehghanzadeh/chemtrade/EntryActivity.kt')
+          s = e.read_text()
+          s = s.replace('sendVerificationSms(phone, otp)', 'prepareVerificationSms(phone, otp)')
+          e.write_text(s)
+          m = Path('app/src/main/java/com/dehghanzadeh/chemtrade/MainActivity.kt')
+          s = m.read_text()
+          if 'import androidx.activity.compose.rememberLauncherForActivityResult' not in s:
+              s = s.replace('import androidx.activity.compose.setContent\n', 'import androidx.activity.compose.rememberLauncherForActivityResult\nimport androidx.activity.compose.setContent\n')
+          if 'import androidx.activity.result.contract.ActivityResultContracts' not in s:
+              s = s.replace('import androidx.activity.compose.setContent\n', 'import androidx.activity.result.contract.ActivityResultContracts\nimport androidx.activity.compose.setContent\n')
+          m.write_text(s)
+          PY
+
       - name: Verify JVM target configuration
         run: |
           grep -q 'sourceCompatibility = JavaVersion.VERSION_17' app/build.gradle.kts
