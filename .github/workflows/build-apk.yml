@@ -76,6 +76,9 @@ jobs:
           m.write_text(s)
           PY
 
+      - name: Apply permanent cloud account persistence
+        run: python3 scripts/fix-cloud-account-persistence.py
+
       - name: Verify JVM target configuration
         run: |
           grep -q 'sourceCompatibility = JavaVersion.VERSION_17' app/build.gradle.kts
