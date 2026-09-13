@@ -30,6 +30,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
 import java.security.SecureRandom
@@ -38,6 +39,8 @@ class EntryActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val prefs = getSharedPreferences("chemlink", Context.MODE_PRIVATE)
+        PersistentBackup.restore(this, prefs)
+        if (CloudStore.enabled()) runBlocking { CloudStore.pull(prefs) }
         if (prefs.getString("phone", "").orEmpty().isNotBlank()) {
             startActivity(Intent(this, MainActivity::class.java))
             finish()
@@ -79,15 +82,7 @@ private fun loadRegisteredUser(context: Context, phone: String): EntryUser? {
     for (i in 0 until old.length()) {
         val item = old.optJSONObject(i) ?: continue
         if (item.optString("phone") == phone) {
-            return EntryUser(
-                phone = phone,
-                type = item.optString("type", "Consumer"),
-                name = item.optString("name"),
-                company = item.optString("company"),
-                address = item.optString("address"),
-                city = item.optString("city"),
-                landline = item.optString("landline")
-            )
+            return EntryUser(phone, item.optString("type", "Consumer"), item.optString("name"), item.optString("company"), item.optString("address"), item.optString("city"), item.optString("landline"))
         }
     }
     return null
@@ -95,50 +90,25 @@ private fun loadRegisteredUser(context: Context, phone: String): EntryUser? {
 
 private fun saveRegisteredUser(context: Context, user: EntryUser) {
     val prefs = context.getSharedPreferences("chemlink", Context.MODE_PRIVATE)
-    val raw = prefs.getString("users", "[]") ?: "[]"
-    val old = runCatching { JSONArray(raw) }.getOrDefault(JSONArray())
-    val users = JSONArray()
-    var found = false
+    val old = runCatching { JSONArray(prefs.getString("users", "[]") ?: "[]") }.getOrDefault(JSONArray())
+    val users = JSONArray(); var found = false
     for (i in 0 until old.length()) {
         val item = old.optJSONObject(i) ?: continue
         if (item.optString("phone") == user.phone) {
-            users.put(JSONObject().apply {
-                put("phone", user.phone)
-                put("type", user.type)
-                put("name", user.name)
-                put("company", user.company)
-                put("address", user.address)
-                put("city", user.city)
-                put("landline", user.landline)
-            })
+            users.put(JSONObject().apply { put("phone", user.phone); put("type", user.type); put("name", user.name); put("company", user.company); put("address", user.address); put("city", user.city); put("landline", user.landline) })
             found = true
         } else users.put(item)
     }
-    if (!found) users.put(JSONObject().apply {
-        put("phone", user.phone)
-        put("type", user.type)
-        put("name", user.name)
-        put("company", user.company)
-        put("address", user.address)
-        put("city", user.city)
-        put("landline", user.landline)
-    })
-    prefs.edit().putString("users", users.toString()).apply()
+    if (!found) users.put(JSONObject().apply { put("phone", user.phone); put("type", user.type); put("name", user.name); put("company", user.company); put("address", user.address); put("city", user.city); put("landline", user.landline) })
+    prefs.edit().putString("users", users.toString()).commit()
+    if (CloudStore.enabled()) runBlocking { CloudStore.push(prefs) }
+    PersistentBackup.backup(context, prefs)
 }
 
 @Composable
 private fun ChemLinkEntryApp() {
-    val colors = lightColorScheme(
-        primary = EntryNavy,
-        secondary = EntryGold,
-        background = EntryCream,
-        surface = Color.White,
-        onPrimary = Color.White,
-        onBackground = EntryNavy
-    )
-    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-        MaterialTheme(colorScheme = colors) { EntryFlow() }
-    }
+    val colors = lightColorScheme(primary = EntryNavy, secondary = EntryGold, background = EntryCream, surface = Color.White, onPrimary = Color.White, onBackground = EntryNavy)
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) { MaterialTheme(colorScheme = colors) { EntryFlow() } }
 }
 
 @Composable
@@ -158,231 +128,66 @@ private fun EntryFlow() {
     var sending by rememberSaveable { mutableStateOf(false) }
 
     fun finishLogin(type: String) {
-        context.getSharedPreferences("chemlink", Context.MODE_PRIVATE).edit()
-            .putString("phone", phone)
-            .putString("type", type)
-            .apply()
-        context.startActivity(Intent(context, MainActivity::class.java))
-        (context as? ComponentActivity)?.finish()
+        context.getSharedPreferences("chemlink", Context.MODE_PRIVATE).edit().putString("phone", phone).putString("type", type).commit()
+        context.startActivity(Intent(context, MainActivity::class.java)); (context as? ComponentActivity)?.finish()
     }
 
     fun sendVerificationSms(targetPhone: String, verificationCode: String) {
         val message = "ChemLink\nکد تأیید ورود به حساب: $verificationCode\nاین پیامک برای تأیید حساب کاربری ChemLink است. کد را در اختیار دیگران قرار ندهید."
         try {
-            @Suppress("DEPRECATION")
-            val manager = SmsManager.getDefault()
-            val parts = manager.divideMessage(message)
-            if (parts.size == 1) manager.sendTextMessage(targetPhone, null, message, null, null)
-            else manager.sendMultipartTextMessage(targetPhone, null, parts, null, null)
-        } catch (_: Exception) {
-            throw IllegalStateException("ارسال پیامک ناموفق بود. مجوز SMS یا سیم‌کارت را بررسی کنید.")
-        }
+            @Suppress("DEPRECATION") val manager = SmsManager.getDefault(); val parts = manager.divideMessage(message)
+            if (parts.size == 1) manager.sendTextMessage(targetPhone, null, message, null, null) else manager.sendMultipartTextMessage(targetPhone, null, parts, null, null)
+        } catch (_: Exception) { throw IllegalStateException("ارسال پیامک ناموفق بود. مجوز SMS یا سیم‌کارت را بررسی کنید.") }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) { try { sendVerificationSms(phone, expectedCode); sending = false; step = 2; error = "" } catch (e: Exception) { sending = false; error = e.message ?: "ارسال پیامک ناموفق بود." } }
+        else { sending = false; error = "برای ورود پیامکی باید مجوز ارسال SMS را فعال کنید." }
     }
 
     fun requestOtp() {
         phone = normalizeDigits(phone).filter(Char::isDigit).take(11)
-        if (phone.length != 11 || !phone.startsWith("09")) {
-            error = "لطفاً شماره موبایل ۱۱ رقمی را درست وارد کنید."
-            return
-        }
-        error = ""
-        val existing = loadRegisteredUser(context, phone)
-        if (existing != null) accountType = existing.type
-        val otp = SecureRandom().nextInt(900000).plus(100000).toString()
-        expectedCode = otp
-        sending = true
+        if (phone.length != 11 || !phone.startsWith("09")) { error = "لطفاً شماره موبایل ۱۱ رقمی را درست وارد کنید."; return }
+        error = ""; loadRegisteredUser(context, phone)?.let { accountType = it.type }
+        val otp = SecureRandom().nextInt(900000).plus(100000).toString(); expectedCode = otp; sending = true
         try {
-            if (ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED) {
-                sendVerificationSms(phone, otp)
-                sending = false
-                step = 2
-            } else {
-                permissionLauncher.launch(Manifest.permission.SEND_SMS)
-            }
-        } catch (e: Exception) {
-            sending = false
-            error = e.message ?: "ارسال پیامک ناموفق بود."
-        }
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED) { sendVerificationSms(phone, otp); sending = false; step = 2 }
+            else permissionLauncher.launch(Manifest.permission.SEND_SMS)
+        } catch (e: Exception) { sending = false; error = e.message ?: "ارسال پیامک ناموفق بود." }
     }
 
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) {
-            try {
-                sendVerificationSms(phone, expectedCode)
-                sending = false
-                step = 2
-                error = ""
-            } catch (e: Exception) {
-                sending = false
-                error = e.message ?: "ارسال پیامک ناموفق بود."
-            }
-        } else {
-            sending = false
-            error = "برای ورود پیامکی باید مجوز ارسال SMS را فعال کنید."
-        }
-    }
-
-    Surface(modifier = Modifier.fillMaxSize(), color = EntryCream) {
+    Surface(Modifier.fillMaxSize(), color = EntryCream) {
         when (step) {
             0 -> WelcomeScreen { step = 1 }
-            1 -> ServiceLoginScreen(
-                phone = phone,
-                type = accountType,
-                onTypeChange = { accountType = it },
-                onPhoneChange = { phone = normalizeDigits(it).filter(Char::isDigit).take(11) },
-                onContinue = { requestOtp() },
-                error = error,
-                sending = sending
-            )
-            2 -> VerifyCodeScreen(
-                phone = phone,
-                code = code,
-                onCodeChange = { code = normalizeDigits(it).filter(Char::isDigit).take(6) },
-                onVerify = {
-                    code = normalizeDigits(code).filter(Char::isDigit).take(6)
-                    if (code == expectedCode && expectedCode.isNotBlank()) {
-                        val existing = loadRegisteredUser(context, phone)
-                        if (existing != null && existing.name.isNotBlank() && existing.company.isNotBlank() && existing.address.isNotBlank()) {
-                            finishLogin(existing.type)
-                        } else {
-                            profileName = existing?.name.orEmpty()
-                            company = existing?.company.orEmpty()
-                            address = existing?.address.orEmpty()
-                            city = existing?.city.orEmpty()
-                            landline = existing?.landline.orEmpty()
-                            if (existing != null) accountType = existing.type
-                            step = 3
-                            error = ""
-                        }
-                    } else error = "کد واردشده صحیح نیست."
-                },
-                onResend = {
-                    val otp = SecureRandom().nextInt(900000).plus(100000).toString()
-                    expectedCode = otp
-                    error = ""
-                    try { sendVerificationSms(phone, otp) }
-                    catch (e: Exception) { error = e.message ?: "ارسال مجدد ناموفق بود." }
-                },
-                onBack = { code = ""; error = ""; step = 1 },
-                error = error
-            )
-            3 -> ProfileScreen(
-                name = profileName,
-                company = company,
-                address = address,
-                city = city,
-                landline = landline,
-                onName = { profileName = it },
-                onCompany = { company = it },
-                onAddress = { address = it },
-                onCity = { city = it },
-                onLandline = { landline = normalizeDigits(it).filter(Char::isDigit).take(11) },
-                onSave = {
-                    if (profileName.isBlank() || company.isBlank() || address.isBlank()) {
-                        error = "نام، نام شرکت و آدرس را کامل کنید."
-                    } else {
-                        saveRegisteredUser(context, EntryUser(phone, accountType, profileName.trim(), company.trim(), address.trim(), city.trim(), landline))
-                        error = ""
-                        finishLogin(accountType)
-                    }
-                },
-                error = error
-            )
+            1 -> ServiceLoginScreen(phone, accountType, { accountType = it }, { phone = normalizeDigits(it).filter(Char::isDigit).take(11) }, { requestOtp() }, error, sending)
+            2 -> VerifyCodeScreen(phone, code, { code = normalizeDigits(it).filter(Char::isDigit).take(6) }, {
+                code = normalizeDigits(code).filter(Char::isDigit).take(6)
+                if (code == expectedCode && expectedCode.isNotBlank()) {
+                    val existing = loadRegisteredUser(context, phone)
+                    if (existing != null && existing.name.isNotBlank() && existing.company.isNotBlank() && existing.address.isNotBlank()) finishLogin(existing.type)
+                    else { profileName = existing?.name.orEmpty(); company = existing?.company.orEmpty(); address = existing?.address.orEmpty(); city = existing?.city.orEmpty(); landline = existing?.landline.orEmpty(); if (existing != null) accountType = existing.type; step = 3; error = "" }
+                } else error = "کد واردشده صحیح نیست."
+            }, {
+                val otp = SecureRandom().nextInt(900000).plus(100000).toString(); expectedCode = otp; error = ""
+                try { sendVerificationSms(phone, otp) } catch (e: Exception) { error = e.message ?: "ارسال مجدد ناموفق بود." }
+            }, { code = ""; error = ""; step = 1 }, error)
+            3 -> ProfileScreen(profileName, company, address, city, landline, { profileName = it }, { company = it }, { address = it }, { city = it }, { landline = normalizeDigits(it).filter(Char::isDigit).take(11) }, {
+                if (profileName.isBlank() || company.isBlank() || address.isBlank()) error = "نام، نام شرکت و آدرس را کامل کنید."
+                else { saveRegisteredUser(context, EntryUser(phone, accountType, profileName.trim(), company.trim(), address.trim(), city.trim(), landline)); error = ""; finishLogin(accountType) }
+            }, error)
         }
     }
 }
 
-@Composable private fun BrandLogo(modifier: Modifier = Modifier) {
-    Image(painter = painterResource(R.drawable.ic_chemtrade_logo), contentDescription = "ChemLink", modifier = modifier, contentScale = ContentScale.Fit)
-}
+@Composable private fun BrandLogo(modifier: Modifier = Modifier) { Image(painterResource(R.drawable.ic_chemtrade_logo), "ChemLink", modifier, contentScale = ContentScale.Fit) }
 
 @Composable private fun WelcomeScreen(onContinue: () -> Unit) {
-    Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        BrandLogo(Modifier.size(116.dp))
-        Spacer(Modifier.height(22.dp))
-        Text("ChemLink", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.ExtraBold, color = EntryNavy)
-        Spacer(Modifier.height(8.dp))
-        Text("پل هوشمند تأمین و فروش مواد اولیه", style = MaterialTheme.typography.titleMedium, color = EntryGold, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(18.dp))
-        Text("بازار حرفه‌ای برای ارتباط مطمئن تأمین‌کنندگان، فروشندگان و مصرف‌کنندگان مواد اولیه", textAlign = TextAlign.Center, color = EntryNavy)
-        Spacer(Modifier.height(36.dp))
-        Button(onClick = onContinue, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = EntryNavy)) { Text("ورود به ChemLink", fontWeight = FontWeight.Bold) }
-    }
+    Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) { BrandLogo(Modifier.size(116.dp)); Spacer(Modifier.height(22.dp)); Text("ChemLink", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.ExtraBold, color = EntryNavy); Spacer(Modifier.height(8.dp)); Text("پل هوشمند تأمین و فروش مواد اولیه", style = MaterialTheme.typography.titleMedium, color = EntryGold, textAlign = TextAlign.Center); Spacer(Modifier.height(18.dp)); Text("بازار حرفه‌ای برای ارتباط مطمئن تأمین‌کنندگان، فروشندگان و مصرف‌کنندگان مواد اولیه", textAlign = TextAlign.Center, color = EntryNavy); Spacer(Modifier.height(36.dp)); Button(onClick = onContinue, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = EntryNavy)) { Text("ورود به ChemLink", fontWeight = FontWeight.Bold) } }
 }
 
 @Composable private fun ServiceLoginScreen(phone: String, type: String, onTypeChange: (String) -> Unit, onPhoneChange: (String) -> Unit, onContinue: () -> Unit, error: String, sending: Boolean) {
-    Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        BrandLogo(Modifier.size(86.dp))
-        Spacer(Modifier.height(18.dp))
-        Text("ورود / ثبت‌نام", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = EntryNavy, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(8.dp))
-        Text("شماره موبایل را وارد کنید. کد تأیید پیامکی برای ورود ارسال می‌شود.", color = EntryNavy, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(18.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = type == "Consumer", onClick = { onTypeChange("Consumer") }, label = { Text("مصرف‌کننده") }, modifier = Modifier.weight(1f))
-            FilterChip(selected = type == "Supplier", onClick = { onTypeChange("Supplier") }, label = { Text("تأمین‌کننده") }, modifier = Modifier.weight(1f))
-        }
-        Spacer(Modifier.height(12.dp))
-        OutlinedTextField(value = phone, onValueChange = onPhoneChange, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("شماره موبایل") }, placeholder = { Text("0912xxxxxxx") }, leadingIcon = { Icon(Icons.Default.Phone, null, tint = EntryBlue) })
-        if (error.isNotBlank()) Text(error, color = EntryRed, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
-        Spacer(Modifier.height(18.dp))
-        Button(enabled = !sending, onClick = onContinue, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = EntryNavy)) { Text(if (sending) "در حال ارسال..." else "دریافت کد تأیید") }
+    Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) { BrandLogo(Modifier.size(86.dp)); Spacer(Modifier.height(18.dp)); Text("ورود / ثبت‌نام", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = EntryNavy, textAlign = TextAlign.Center); Spacer(Modifier.height(8.dp)); Text("شماره موبایل را وارد کنید. کد تأیید پیامکی برای ورود ارسال می‌شود.", color = EntryNavy, textAlign = TextAlign.Center); Spacer(Modifier.height(18.dp));
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(selected = type == "Supplier", onClick = { onTypeChange("Supplier") }, label = { Text("تأمین‌کننده") }); FilterChip(selected = type == "Consumer", onClick = { onTypeChange("Consumer") }, label = { Text("مصرف‌کننده") }) }
+        Spacer(Modifier.height(12.dp)); OutlinedTextField(value = phone, onValueChange = onPhoneChange, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("شماره موبایل") }, leadingIcon = { Icon(Icons.Filled.Phone, null) }); Spacer(Modifier.height(18.dp)); Button(onClick = onContinue, enabled = !sending, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = EntryNavy)) { Text(if (sending) "در حال ارسال..." else "دریافت کد پیامکی") }; if (error.isNotBlank()) { Spacer(Modifier.height(10.dp)); Text(error, color = EntryRed, textAlign = TextAlign.Center) }
     }
-}
-
-@Composable private fun VerifyCodeScreen(phone: String, code: String, onCodeChange: (String) -> Unit, onVerify: () -> Unit, onResend: () -> Unit, onBack: () -> Unit, error: String) {
-    Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        BrandLogo(Modifier.size(86.dp))
-        Spacer(Modifier.height(24.dp))
-        Text("تأیید شماره موبایل", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = EntryNavy)
-        Spacer(Modifier.height(10.dp))
-        Text("کد تأیید به شماره $phone ارسال شد. کد را وارد کنید.", textAlign = TextAlign.Center, color = EntryNavy)
-        Spacer(Modifier.height(22.dp))
-        OutlinedTextField(value = code, onValueChange = onCodeChange, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("کد ۶ رقمی") }, placeholder = { Text("------") })
-        if (error.isNotBlank()) Text(error, color = EntryRed, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
-        Spacer(Modifier.height(18.dp))
-        Button(onClick = onVerify, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = EntryNavy)) { Text("تأیید و ادامه") }
-        TextButton(onClick = onResend) { Text("ارسال مجدد کد", color = EntryGold) }
-        TextButton(onClick = onBack) { Text("ویرایش شماره موبایل", color = EntryGold) }
-    }
-}
-
-@Composable private fun ProfileScreen(
-    name: String,
-    company: String,
-    address: String,
-    city: String,
-    landline: String,
-    onName: (String) -> Unit,
-    onCompany: (String) -> Unit,
-    onAddress: (String) -> Unit,
-    onCity: (String) -> Unit,
-    onLandline: (String) -> Unit,
-    onSave: () -> Unit,
-    error: String
-) {
-    LazyColumnCompat {
-        BrandLogo(Modifier.size(76.dp))
-        Spacer(Modifier.height(10.dp))
-        Text("تکمیل اطلاعات حساب", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = EntryNavy, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(6.dp))
-        Text("این اطلاعات فقط در اولین ثبت‌نام از شما گرفته می‌شود.", color = EntryNavy, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(16.dp))
-        ProfileField("نام و نام خانوادگی", name, onName)
-        ProfileField("نام شرکت / مجموعه", company, onCompany)
-        ProfileField("شهر", city, onCity)
-        OutlinedTextField(value = address, onValueChange = onAddress, modifier = Modifier.fillMaxWidth(), minLines = 3, label = { Text("آدرس کامل") })
-        ProfileField("تلفن ثابت (اختیاری)", landline, onLandline)
-        Spacer(Modifier.height(8.dp))
-        if (error.isNotBlank()) Text(error, color = EntryRed, modifier = Modifier.fillMaxWidth())
-        Spacer(Modifier.height(8.dp))
-        Button(onClick = onSave, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = EntryNavy)) { Text("ذخیره اطلاعات و ورود", fontWeight = FontWeight.Bold) }
-        Spacer(Modifier.height(20.dp))
-    }
-}
-
-@Composable private fun ProfileField(label: String, value: String, onChange: (String) -> Unit) = OutlinedTextField(value = value, onValueChange = onChange, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(label) })
-
-@Composable private fun LazyColumnCompat(content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp), content = content)
 }
