@@ -4,8 +4,6 @@ ROOT = Path('app/src/main/java/com/dehghanzadeh/chemtrade')
 M = ROOT / 'MainActivity.kt'
 E = ROOT / 'EntryActivity.kt'
 
-# EntryActivity: after OTP verification, fetch the account from Firebase before deciding
-# whether profile data is already complete. After first registration, upload the account.
 e = E.read_text(encoding='utf-8')
 if 'import kotlinx.coroutines.launch' not in e:
     e = e.replace('import androidx.core.content.ContextCompat\n', 'import androidx.core.content.ContextCompat\nimport kotlinx.coroutines.launch\n')
@@ -27,28 +25,27 @@ new = '''cloudScope.launch {
                             if (existing != null && existing.name.isNotBlank() && existing.company.isNotBlank() && existing.address.isNotBlank()) finishLogin(existing.type) else {'''
 if old in e and 'val remote = CloudStore.loadUser' not in e:
     e = e.replace(old, new, 1)
-    # Close the coroutine lambda at the end of the existing else branch.
-    marker = 'step = 3; error = "" } } else error = "کد واردشده صحیح نیست."'
-    e = e.replace(marker, 'step = 3; error = "" } } else error = "کد واردشده صحیح نیست."', 1)
 
 old_save = 'saveRegisteredUser(context, EntryUser(phone, accountType, profileName.trim(), company.trim(), address.trim(), city.trim(), landline)); error = ""; finishLogin(accountType)'
 new_save = '''val user = EntryUser(phone, accountType, profileName.trim(), company.trim(), address.trim(), city.trim(), landline)
                         saveRegisteredUser(context, user)
                         cloudScope.launch {
-                            if (CloudStore.enabled()) CloudStore.saveUser(prefs, JSONObject().apply {
-                                put("phone", user.phone); put("type", user.type); put("name", user.name); put("company", user.company)
-                                put("address", user.address); put("city", user.city); put("landline", user.landline)
-                            })
-                        }
-                        error = ""; finishLogin(accountType)'''
+                            if (CloudStore.enabled()) {
+                                CloudStore.saveUser(prefs, JSONObject().apply {
+                                    put("phone", user.phone); put("type", user.type); put("name", user.name); put("company", user.company)
+                                    put("address", user.address); put("city", user.city); put("landline", user.landline)
+                                })
+                            }
+                            error = ""
+                            finishLogin(accountType)
+                        }'''
 if old_save in e and 'CloudStore.saveUser(prefs' not in e:
     e = e.replace(old_save, new_save, 1)
 
 E.write_text(e, encoding='utf-8')
 
-# MainActivity: load cloud state on every app start, and push account/offer changes.
 m = M.read_text(encoding='utf-8')
-if 'LaunchedEffect(Unit) {' not in m or 'CloudStore.pull(prefs)' not in m:
+if 'CloudStore.pull(prefs)' not in m:
     needle = 'var offers by remember { mutableStateOf(loadOffers(prefs)) }'
     repl = needle + '''
 
