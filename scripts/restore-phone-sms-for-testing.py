@@ -1,11 +1,12 @@
 from pathlib import Path
+import re
 
 ROOT = Path("app/src/main")
 entry = ROOT / "java/com/dehghanzadeh/chemtrade/EntryActivity.kt"
 main = ROOT / "java/com/dehghanzadeh/chemtrade/MainActivity.kt"
 manifest = ROOT / "AndroidManifest.xml"
 
-# Both customer and admin OTP use the phone's own SMS composer.
+# Both customer and admin OTP use the phone's own SMS composer: no SEND_SMS runtime permission.
 e = entry.read_text(encoding="utf-8")
 for imp in [
     "import android.Manifest\n",
@@ -34,16 +35,46 @@ send_fn = '''    fun prepareVerificationSms(targetPhone: String, verificationCod
         }
     }
 '''
+# Replace the old direct-SMS function if present.
 start = e.find("    fun sendVerificationSms(")
 if start >= 0:
     end = e.find("\n    fun requestOtp()", start)
     if end >= 0:
         e = e[:start] + send_fn + e[end:]
+else:
+    start = e.find("    fun prepareVerificationSms(")
+    if start < 0:
+        raise SystemExit("customer SMS helper not found")
 
+# Remove any runtime-permission launcher and replace requestOtp with composer flow.
+e = re.sub(r'\n\s*val permissionLauncher = rememberLauncherForActivityResult\(.*?\n\s*\}\n\s*fun requestOtp\(\)', '\n    fun requestOtp()', e, count=1, flags=re.S)
+
+request_start = e.find("    fun requestOtp()")
+if request_start < 0:
+    raise SystemExit("requestOtp not found")
+# Find next top-level composable Surface marker after requestOtp.
+next_marker = e.find("\n    Surface(", request_start)
+if next_marker < 0:
+    raise SystemExit("EntryFlow Surface marker not found")
+request_fn = '''    fun requestOtp() {
+        phone = normalizeDigits(phone).filter(Char::isDigit).take(11)
+        if (phone.length != 11 || !phone.startsWith("09")) {
+            error = "لطفاً شماره موبایل ۱۱ رقمی را درست وارد کنید."
+            return
+        }
+        error = ""
+        loadRegisteredUser(context, phone)?.let { accountType = it.type }
+        val otp = SecureRandom().nextInt(900000).plus(100000).toString()
+        expectedCode = otp
+        sending = true
+        prepareVerificationSms(phone, otp)
+    }
+'''
+e = e[:request_start] + request_fn + e[next_marker:]
 e = e.replace('sendVerificationSms(', 'prepareVerificationSms(')
 entry.write_text(e, encoding="utf-8")
 
-# Admin login uses the exact same no-permission SMS-composer path as the customer flow.
+# Keep admin login on the exact same no-permission SMS-composer path.
 m = main.read_text(encoding="utf-8")
 for imp in [
     "import android.Manifest\n",
