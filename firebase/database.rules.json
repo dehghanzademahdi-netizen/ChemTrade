@@ -1,5 +1,15 @@
 {
   "rules": {
+    "chemlink": {
+      ".read": true,
+      ".write": true,
+      "usersByPhone": {
+        "$phone": {
+          ".read": true,
+          ".write": true
+        }
+      }
+    },
     "chemlinkSnapshot": {
       ".read": true,
       ".write": true
