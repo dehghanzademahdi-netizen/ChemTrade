@@ -5,7 +5,7 @@ entry = ROOT / "java/com/dehghanzadeh/chemtrade/EntryActivity.kt"
 main = ROOT / "java/com/dehghanzadeh/chemtrade/MainActivity.kt"
 manifest = ROOT / "AndroidManifest.xml"
 
-# Both customer and admin OTP now use the phone's own SMS composer.
+# Both customer and admin OTP use the phone's own SMS composer.
 e = entry.read_text(encoding="utf-8")
 for imp in [
     "import android.Manifest\n",
@@ -40,31 +40,10 @@ if start >= 0:
     if end >= 0:
         e = e[:start] + send_fn + e[end:]
 
-start = e.find("    fun requestOtp()")
-if start >= 0:
-    end = e.find("\n    Surface(modifier = Modifier.fillMaxSize(), color = EntryCream) {", start)
-    if end >= 0:
-        request_fn = '''    fun requestOtp() {
-        phone = normalizeDigits(phone).filter(Char::isDigit).take(11)
-        if (phone.length != 11 || !phone.startsWith("09")) {
-            error = "لطفاً شماره موبایل ۱۱ رقمی را درست وارد کنید."
-            return
-        }
-        error = ""
-        val existing = loadRegisteredUser(context, phone)
-        if (existing != null) accountType = existing.type
-        val otp = SecureRandom().nextInt(900000).plus(100000).toString()
-        expectedCode = otp
-        sending = true
-        prepareVerificationSms(phone, otp)
-    }
-'''
-        e = e[:start] + request_fn + e[end:]
-
-# Keep existing-account behavior: OTP is required, but profile data is reused.
+e = e.replace('sendVerificationSms(', 'prepareVerificationSms(')
 entry.write_text(e, encoding="utf-8")
 
-# Admin login uses the exact same no-permission SMS-composer path.
+# Admin login uses the exact same no-permission SMS-composer path as the customer flow.
 m = main.read_text(encoding="utf-8")
 for imp in [
     "import android.Manifest\n",
@@ -79,7 +58,6 @@ for imp in [
 start = m.find("@Composable\nprivate fun AdminLoginDialog")
 if start < 0:
     raise SystemExit("AdminLoginDialog not found")
-# Do not truncate the non-composable persistence/helper functions after the dialog.
 end = m.find("\nprivate fun loadOffers", start)
 if end < 0:
     end = m.find("\nfun loadOffers", start)
@@ -115,33 +93,16 @@ private fun AdminLoginDialog(close: () -> Unit, success: () -> Unit) {
         }
     }
 
-    AlertDialog(onDismissRequest = close, title = { Text(if (step == 0) "ورود مدیریت" else "تأیید دو مرحله‌ای مدیریت") }, text = {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (step == 0) {
-                Text("دسترسی مدیریت محافظت شده است.")
-                OutlinedTextField(password, { password = digits(it).take(12) }, Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation(), label = { Text("رمز مدیریت") })
-            } else {
-                Text("کد ۶ رقمی آماده ارسال به شماره مدیریت است.")
-                OutlinedTextField(code, { code = digits(it).filter(Char::isDigit).take(6) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("کد پیامکی") })
-            }
-            if (message.isNotBlank()) Text(message, color = Green)
-            if (error.isNotBlank()) Text(error, color = Red)
-        }
-    }, confirmButton = {
-        Button(enabled = !sending, onClick = {
-            if (step == 0) {
-                if (hash(password) == ADMIN_HASH) {
-                    val otp = SecureRandom().nextInt(900000).plus(100000).toString()
-                    expected = otp
-                    code = ""
-                    sending = true
-                    prepareAdminSms(otp)
-                } else error = "رمز مدیریت صحیح نیست."
-            } else {
-                if (code == expected && expected.isNotBlank()) success() else error = "کد پیامکی صحیح نیست."
-            }
-        }) { Text(if (step == 0) "ارسال کد ورود" else "تأیید و ورود") }
-    }, dismissButton = { TextButton(close) { Text("انصراف") } })
+    AlertDialog(onDismissRequest = close, title = { Text(if (step == 0) "ورود مدیریت" else "تأیید دو مرحله‌ای مدیریت") }, text = { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (step == 0) { Text("دسترسی مدیریت محافظت شده است."); OutlinedTextField(password, { password = digits(it).take(12) }, Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation(), label = { Text("رمز مدیریت") }) }
+        else { Text("کد ۶ رقمی آماده ارسال به شماره مدیریت است."); OutlinedTextField(code, { code = digits(it).filter(Char::isDigit).take(6) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("کد پیامکی") }) }
+        if (message.isNotBlank()) Text(message, color = Green); if (error.isNotBlank()) Text(error, color = Red)
+    } }, confirmButton = { Button(enabled = !sending, onClick = {
+        if (step == 0) {
+            if (hash(password) == ADMIN_HASH) { val otp = SecureRandom().nextInt(900000).plus(100000).toString(); expected = otp; code = ""; sending = true; prepareAdminSms(otp) }
+            else error = "رمز مدیریت صحیح نیست."
+        } else if (code == expected && expected.isNotBlank()) success() else error = "کد پیامکی صحیح نیست."
+    }) { Text(if (step == 0) "ارسال کد ورود" else "تأیید و ورود") } }, dismissButton = { TextButton(close) { Text("انصراف") } })
 }
 '''
 m = m[:start] + admin + m[end:]
