@@ -15,11 +15,12 @@ object CloudStore {
     private const val USERS_BY_PHONE = "usersByPhone"
     private const val OFFERS = "offers"
 
-    private fun baseUrl(): String = BuildConfig.CHEMLINK_FIREBASE_DB_URL.trimEnd('/')
-    fun enabled(): Boolean = baseUrl().isNotBlank()
+    // The uploaded Firebase configuration identifies project chemlink-8909b.
+    // Keep the build property override, but never disable cloud persistence when it is absent.
+    private fun baseUrl(): String = (BuildConfig.CHEMLINK_FIREBASE_DB_URL.ifBlank { "https://chemlink-8909b-default-rtdb.firebaseio.com" }).trimEnd('/')
+    fun enabled(): Boolean = true
 
     private suspend fun request(method: String, path: String, body: String? = null): String? = withContext(Dispatchers.IO) {
-        if (!enabled()) return@withContext null
         runCatching {
             val c = (URL("${baseUrl()}/$path.json").openConnection() as HttpURLConnection).apply {
                 requestMethod = method
@@ -41,7 +42,6 @@ object CloudStore {
     private fun offerKey(o: JSONObject): String = listOf(o.optString("phone").ifBlank { o.optString("owner") }, o.optString("id"), o.optString("createdAt"), o.optString("name")).joinToString("|")
 
     suspend fun saveUser(prefs: SharedPreferences, userJson: JSONObject): Boolean {
-        if (!enabled()) return false
         val phone = userJson.optString("phone").filter { it.isDigit() }
         if (phone.isBlank()) return false
         val path = "$ROOT/$USERS_BY_PHONE/${encode(phone)}"
@@ -49,11 +49,8 @@ object CloudStore {
         val merged = JSONObject(existing?.toString() ?: "{}")
         val keys = userJson.keys()
         while (keys.hasNext()) { val k = keys.next(); merged.put(k, userJson.opt(k)) }
-        request("PUT", path, merged.toString()) ?: return false
-
-        // Keep the legacy users array in sync for existing app screens.
-        val usersRaw = request("GET", "$ROOT/$USERS")
-        val users = array(usersRaw)
+        if (request("PUT", path, merged.toString()) == null) return false
+        val users = array(request("GET", "$ROOT/$USERS"))
         var found = false
         for (i in 0 until users.length()) {
             val u = users.optJSONObject(i) ?: continue
@@ -65,7 +62,6 @@ object CloudStore {
     }
 
     suspend fun loadUser(prefs: SharedPreferences, phone: String): JSONObject? {
-        if (!enabled()) return null
         val normalized = phone.filter { it.isDigit() }
         if (normalized.isBlank()) return null
         val direct = request("GET", "$ROOT/$USERS_BY_PHONE/${encode(normalized)}")
@@ -79,7 +75,6 @@ object CloudStore {
     }
 
     suspend fun push(prefs: SharedPreferences): Boolean {
-        if (!enabled()) return false
         val localUsers = array(prefs.getString(USERS, "[]"))
         val localOffers = array(prefs.getString(OFFERS, "[]"))
         val remote = request("GET", ROOT)?.let { runCatching { JSONObject(it) }.getOrNull() }
@@ -98,12 +93,9 @@ object CloudStore {
     }
 
     suspend fun pull(prefs: SharedPreferences): Boolean {
-        if (!enabled()) return false
         val payload = request("GET", ROOT)?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return false
         val byPhone = payload.optJSONObject(USERS_BY_PHONE)
-        val users = if (byPhone != null) JSONArray().also { out ->
-            val keys = byPhone.keys(); while (keys.hasNext()) { byPhone.optJSONObject(keys.next())?.let(out::put) }
-        } else array(payload.optString(USERS))
+        val users = if (byPhone != null) JSONArray().also { out -> val keys = byPhone.keys(); while (keys.hasNext()) { byPhone.optJSONObject(keys.next())?.let(out::put) } } else array(payload.optString(USERS))
         val offers = array(payload.optString(OFFERS))
         prefs.edit().putString(USERS, users.toString()).putString(OFFERS, offers.toString()).apply()
         return true
