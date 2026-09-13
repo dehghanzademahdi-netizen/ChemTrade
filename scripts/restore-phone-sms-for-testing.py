@@ -6,8 +6,6 @@ main = ROOT / "java/com/dehghanzadeh/chemtrade/MainActivity.kt"
 manifest = ROOT / "AndroidManifest.xml"
 
 # Both customer and admin OTP now use the phone's own SMS composer.
-# This avoids SEND_SMS runtime permission and therefore avoids the Android
-# permission failure the user was seeing.
 e = entry.read_text(encoding="utf-8")
 for imp in [
     "import android.Manifest\n",
@@ -63,11 +61,10 @@ if start >= 0:
 '''
         e = e[:start] + request_fn + e[end:]
 
-e = e.replace("sendVerificationSms(phone, otp)", "prepareVerificationSms(phone, otp)")
-e = e.replace("sendVerificationSms(phone, expectedCode)", "prepareVerificationSms(phone, expectedCode)")
+# Keep existing-account behavior: OTP is required, but profile data is reused.
 entry.write_text(e, encoding="utf-8")
 
-# Admin login must follow the exact same no-permission SMS-composer path.
+# Admin login uses the exact same no-permission SMS-composer path.
 m = main.read_text(encoding="utf-8")
 for imp in [
     "import android.Manifest\n",
@@ -82,23 +79,26 @@ for imp in [
 start = m.find("@Composable\nprivate fun AdminLoginDialog")
 if start < 0:
     raise SystemExit("AdminLoginDialog not found")
-end = m.find("\n@Composable", start + 10)
+# Do not truncate the non-composable persistence/helper functions after the dialog.
+end = m.find("\nprivate fun loadOffers", start)
 if end < 0:
-    end = len(m)
+    end = m.find("\nfun loadOffers", start)
+if end < 0:
+    raise SystemExit("MainActivity helper boundary not found")
 
 admin = r'''@Composable
-private fun AdminLoginDialog(onClose: () -> Unit, onSuccess: () -> Unit) {
+private fun AdminLoginDialog(close: () -> Unit, success: () -> Unit) {
     val context = LocalContext.current
     var step by remember { mutableIntStateOf(0) }
     var password by remember { mutableStateOf("") }
-    var otp by remember { mutableStateOf("") }
+    var code by remember { mutableStateOf("") }
     var expected by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf("") }
     var message by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf("") }
     var sending by remember { mutableStateOf(false) }
 
-    fun prepareAdminSms(code: String) {
-        val sms = "ChemLink - کد ورود مدیریت: $code - این کد را در اختیار دیگران قرار ندهید."
+    fun prepareAdminSms(otp: String) {
+        val sms = "ChemLink - کد ورود مدیریت: $otp - این کد را در اختیار دیگران قرار ندهید."
         try {
             val intent = Intent(Intent.ACTION_SENDTO).apply {
                 data = Uri.parse("smsto:$ADMIN_PHONE")
@@ -106,8 +106,8 @@ private fun AdminLoginDialog(onClose: () -> Unit, onSuccess: () -> Unit) {
             }
             context.startActivity(intent)
             sending = false
-            step = 1
-            message = "پیامک ورود مدیریت آماده شد؛ دکمه ارسال را در برنامه پیامک بزنید."
+            step = 2
+            message = "پیامک آماده شد؛ دکمه ارسال را در برنامه پیامک بزنید."
             error = ""
         } catch (_: Exception) {
             sending = false
@@ -115,46 +115,39 @@ private fun AdminLoginDialog(onClose: () -> Unit, onSuccess: () -> Unit) {
         }
     }
 
-    AlertDialog(
-        onDismissRequest = onClose,
-        title = { Text(if (step == 0) "ورود مدیریت" else "تأیید ورود مدیریت") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (step == 0) {
-                    Text("رمز مدیریت را وارد کنید.")
-                    OutlinedTextField(value = password, onValueChange = { password = it }, singleLine = true, label = { Text("رمز مدیریت") }, visualTransformation = PasswordVisualTransformation())
-                } else {
-                    Text("کد تأیید به شماره مدیریت ارسال شد.")
-                    OutlinedTextField(value = otp, onValueChange = { otp = digits(it).filter(Char::isDigit).take(6) }, singleLine = true, label = { Text("کد پیامکی") })
-                }
-                if (message.isNotBlank()) Text(message, color = Green)
-                if (error.isNotBlank()) Text(error, color = Red)
+    AlertDialog(onDismissRequest = close, title = { Text(if (step == 0) "ورود مدیریت" else "تأیید دو مرحله‌ای مدیریت") }, text = {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (step == 0) {
+                Text("دسترسی مدیریت محافظت شده است.")
+                OutlinedTextField(password, { password = digits(it).take(12) }, Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation(), label = { Text("رمز مدیریت") })
+            } else {
+                Text("کد ۶ رقمی آماده ارسال به شماره مدیریت است.")
+                OutlinedTextField(code, { code = digits(it).filter(Char::isDigit).take(6) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("کد پیامکی") })
             }
-        },
-        confirmButton = {
-            Button(enabled = !sending, onClick = {
-                if (step == 0) {
-                    if (hash(password) != ADMIN_HASH) {
-                        error = "رمز مدیریت صحیح نیست."
-                        return@Button
-                    }
-                    val code = SecureRandom().nextInt(900000).plus(100000).toString()
-                    expected = code
+            if (message.isNotBlank()) Text(message, color = Green)
+            if (error.isNotBlank()) Text(error, color = Red)
+        }
+    }, confirmButton = {
+        Button(enabled = !sending, onClick = {
+            if (step == 0) {
+                if (hash(password) == ADMIN_HASH) {
+                    val otp = SecureRandom().nextInt(900000).plus(100000).toString()
+                    expected = otp
+                    code = ""
                     sending = true
-                    prepareAdminSms(code)
-                } else {
-                    if (otp == expected && expected.isNotBlank()) onSuccess() else error = "کد واردشده صحیح نیست."
-                }
-            }) { Text(if (step == 0) "ارسال کد ورود" else "ورود به مدیریت") }
-        },
-        dismissButton = { TextButton(onClick = onClose) { Text("انصراف") } }
-    )
+                    prepareAdminSms(otp)
+                } else error = "رمز مدیریت صحیح نیست."
+            } else {
+                if (code == expected && expected.isNotBlank()) success() else error = "کد پیامکی صحیح نیست."
+            }
+        }) { Text(if (step == 0) "ارسال کد ورود" else "تأیید و ورود") }
+    }, dismissButton = { TextButton(close) { Text("انصراف") } })
 }
 '''
 m = m[:start] + admin + m[end:]
 main.write_text(m, encoding="utf-8")
 
-# SEND_SMS is no longer needed anywhere in the app.
+# No SEND_SMS permission is needed when using the phone's SMS composer.
 a = manifest.read_text(encoding="utf-8")
 a = a.replace('    <uses-permission android:name="android.permission.SEND_SMS" />\n', '')
 manifest.write_text(a, encoding="utf-8")
