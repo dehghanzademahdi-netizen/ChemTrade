@@ -29,6 +29,35 @@ jobs:
           yes | sdkmanager --licenses >/dev/null 2>&1 || true
           sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
+      - name: Verify Firebase Realtime Database read/write
+        env:
+          CHEMLINK_FIREBASE_DB_URL: ${{ secrets.CHEMLINK_FIREBASE_DB_URL }}
+        run: |
+          DB_URL="${CHEMLINK_FIREBASE_DB_URL:-https://chemlink-8909b-default-rtdb.firebaseio.com}"
+          DB_URL="${DB_URL%/}"
+          TEST_PATH="chemlink/_ci_smoke_test"
+          TEST_VALUE="chemtrade-ci-$(date +%s)-$RANDOM"
+          echo "Testing Firebase endpoint: $DB_URL"
+          HTTP_CODE=$(curl -sS -o /tmp/firebase_put.json -w '%{http_code}' \
+            -X PUT "$DB_URL/$TEST_PATH.json" \
+            -H 'Content-Type: application/json' \
+            --data "\"$TEST_VALUE\"")
+          echo "PUT HTTP $HTTP_CODE"
+          test "$HTTP_CODE" = "200"
+          PUT_BODY=$(cat /tmp/firebase_put.json)
+          test "$PUT_BODY" = "\"$TEST_VALUE\""
+          HTTP_CODE=$(curl -sS -o /tmp/firebase_get.json -w '%{http_code}' \
+            "$DB_URL/$TEST_PATH.json")
+          echo "GET HTTP $HTTP_CODE"
+          test "$HTTP_CODE" = "200"
+          GET_BODY=$(cat /tmp/firebase_get.json)
+          test "$GET_BODY" = "\"$TEST_VALUE\""
+          HTTP_CODE=$(curl -sS -o /tmp/firebase_delete.json -w '%{http_code}' \
+            -X DELETE "$DB_URL/$TEST_PATH.json")
+          echo "DELETE HTTP $HTTP_CODE"
+          test "$HTTP_CODE" = "200"
+          echo "Firebase read/write smoke test PASSED"
+
       - name: Patch admin SMS flow
         run: python3 .github/scripts/fix-admin-sms.py
 
@@ -99,7 +128,9 @@ jobs:
       - name: Build debug APK
         env:
           CHEMLINK_FIREBASE_DB_URL: ${{ secrets.CHEMLINK_FIREBASE_DB_URL }}
-        run: gradle :app:assembleDebug --no-daemon --stacktrace -PchemlinkFirebaseDbUrl="$CHEMLINK_FIREBASE_DB_URL"
+        run: |
+          DB_URL="${CHEMLINK_FIREBASE_DB_URL:-https://chemlink-8909b-default-rtdb.firebaseio.com}"
+          gradle :app:assembleDebug --no-daemon --stacktrace -PchemlinkFirebaseDbUrl="$DB_URL"
 
       - name: Verify APK
         run: |
