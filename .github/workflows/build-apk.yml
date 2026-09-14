@@ -82,6 +82,9 @@ jobs:
       - name: Apply cloud persistence hooks
         run: python3 scripts/fix-cloud-persistence-hooks.py
 
+      - name: Apply real cloud writes and full offer editing
+        run: python3 scripts/fix-real-cloud-and-offer-edit.py
+
       - name: Verify JVM target configuration
         run: |
           grep -q 'sourceCompatibility = JavaVersion.VERSION_17' app/build.gradle.kts
