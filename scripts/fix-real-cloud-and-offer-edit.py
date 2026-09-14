@@ -1,8 +1,9 @@
 from pathlib import Path
+import re
 
 root = Path('app/src/main/java/com/dehghanzadeh/chemtrade')
 
-# Entry: write every newly completed/updated account to Firebase immediately.
+# Entry: write every newly completed account to Firebase immediately.
 e = root / 'EntryActivity.kt'
 s = e.read_text(encoding='utf-8')
 old = 'saveRegisteredUser(context, EntryUser(phone, accountType, profileName.trim(), company.trim(), address.trim(), city.trim(), landline)); error = ""; finishLogin(accountType)'
@@ -17,45 +18,30 @@ elif 'CloudStore.saveUser(context.getSharedPreferences("chemlink"' not in s:
     raise SystemExit('EntryActivity cloud-save hook not found')
 e.write_text(s, encoding='utf-8')
 
-# MainActivity: pull cloud state on startup, push every offer change immediately,
-# and let the owner open the complete offer for edits even after publication.
+# MainActivity: ensure an offer save is immediately pushed to Firebase.
 m = root / 'MainActivity.kt'
 s = m.read_text(encoding='utf-8')
-if 'LaunchedEffect(Unit) {\n        CloudStore.pull(prefs)' not in s:
-    needle = 'var offers by remember { mutableStateOf(loadOffers(prefs)) }'
-    repl = needle + '''
-    LaunchedEffect(Unit) {
-        CloudStore.pull(prefs)
-        offers = loadOffers(prefs)
-    }'''
-    if needle not in s:
-        raise SystemExit('MainActivity startup hook not found')
-    s = s.replace(needle, repl, 1)
-
 if 'val scope = rememberCoroutineScope()' not in s:
-    needle = '''val context = LocalContext.current
-    val prefs = remember { context.getSharedPreferences("chemlink", Context.MODE_PRIVATE) }'''
-    repl = '''val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val prefs = remember { context.getSharedPreferences("chemlink", Context.MODE_PRIVATE) }'''
+    needle = 'val context = LocalContext.current\n'
     if needle not in s:
-        raise SystemExit('MainActivity scope hook not found')
-    s = s.replace(needle, repl, 1)
+        raise SystemExit('MainActivity context hook not found')
+    s = s.replace(needle, needle + '    val scope = rememberCoroutineScope()\n', 1)
 
-old = 'offers = list; persistOffers(prefs, list)'
-if old in s:
-    new = '''offers = list
-        persistOffers(prefs, list)
-        scope.launch(kotlinx.coroutines.Dispatchers.IO) { CloudStore.push(prefs) }'''
-    s = s.replace(old, new, 1)
-elif 'scope.launch(kotlinx.coroutines.Dispatchers.IO) { CloudStore.push(prefs) }' not in s:
-    raise SystemExit('MainActivity offer-save hook not found')
+if 'scope.launch(kotlinx.coroutines.Dispatchers.IO) { CloudStore.push(prefs) }' not in s:
+    marker = 'persistOffers(prefs, list)'
+    if marker not in s:
+        raise SystemExit('MainActivity offer persistence marker not found')
+    s = s.replace(marker, marker + '\n        scope.launch(kotlinx.coroutines.Dispatchers.IO) { CloudStore.push(prefs) }', 1)
 
+# The earlier cloud-persistence hook already pulls remote data on startup; do not duplicate it.
+
+# Owner must be able to edit the complete offer, including a published offer.
 old = '''if (offer.status != Status.APPROVED) OutlinedButton({ edit(offer) }) { Text("ویرایش") }; if (offer.status == Status.APPROVED) Button({ correctionText = ""; correctionTarget = offer }) { Text("درخواست اصلاح") }'''
 new = '''OutlinedButton({ edit(offer) }) { Text(if (offer.status == Status.APPROVED) "ویرایش کامل" else "ویرایش") }'''
 if old in s:
     s = s.replace(old, new, 1)
 
+# Editing a published offer must send it back to management review after saving.
 old = '''if (showOfferForm) OfferFormDialog(editOffer, if (admin) ADMIN_PHONE else phone, { showOfferForm = false; editOffer = null }) { saveOffer(it); showOfferForm = false; editOffer = null; page = if (admin) 0 else 4 }'''
 new = '''if (showOfferForm) OfferFormDialog(editOffer, if (admin) ADMIN_PHONE else phone, { showOfferForm = false; editOffer = null }) { submitted ->
         val edited = if (editOffer != null && editOffer!!.status == Status.APPROVED && !admin) submitted.copy(status = Status.PENDING, reason = "") else submitted
