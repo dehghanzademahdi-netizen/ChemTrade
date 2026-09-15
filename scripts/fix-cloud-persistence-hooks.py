@@ -5,7 +5,7 @@ e = root / 'EntryActivity.kt'
 m = root / 'MainActivity.kt'
 
 # EntryActivity: after SMS verification, query Firebase before deciding whether
-# the user must complete the profile again. Use stable markers and verify injection.
+# the user must complete the profile again. Anchor on the stable load call.
 s = e.read_text(encoding='utf-8')
 if 'CloudStore.loadUser' not in s:
     marker = 'val existing = loadRegisteredUser(context, phone)'
@@ -21,20 +21,23 @@ if 'CloudStore.loadUser' not in s:
     s = s.replace(marker, replacement, 1)
 e.write_text(s, encoding='utf-8')
 
-# MainActivity: pull remote state on startup, then push the merged local state.
+# MainActivity: insert cloud startup sync immediately before saveOffer(). This
+# anchor survives the other UI/build patches that may alter the offers state line.
 s = m.read_text(encoding='utf-8')
 if 'CloudStore.pull(prefs)' not in s:
-    marker = 'var offers by remember { mutableStateOf(loadOffers(prefs)) }'
+    marker = '    fun saveOffer(input: Offer) {'
     if marker not in s:
-        raise SystemExit('MainActivity offers state marker not found')
-    replacement = marker + '''
-
-    LaunchedEffect(Unit) {
+        marker = 'fun saveOffer(input: Offer) {'
+    if marker not in s:
+        raise SystemExit('MainActivity saveOffer marker not found')
+    replacement = '''    LaunchedEffect(Unit) {
         CloudStore.pull(prefs)
         offers = loadOffers(prefs)
         CloudStore.push(prefs)
-    }'''
-    s = s.replace(marker, replacement, 1)
+    }
+
+'''
+    s = s.replace(marker, replacement + marker, 1)
 m.write_text(s, encoding='utf-8')
 
 entry = e.read_text(encoding='utf-8')
