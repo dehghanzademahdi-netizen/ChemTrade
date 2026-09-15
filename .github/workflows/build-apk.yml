@@ -111,13 +111,18 @@ jobs:
       - name: Apply real cloud writes and full offer editing
         run: python3 scripts/fix-real-cloud-and-offer-edit.py
 
+      - name: Apply admin supplier and consumer management
+        run: python3 scripts/add-admin-user-management.py
+
       - name: Verify injected cloud persistence in build sources
         run: |
           grep -q 'CloudStore.loadUser' app/src/main/java/com/dehghanzadeh/chemtrade/EntryActivity.kt
           grep -q 'CloudStore.saveUser' app/src/main/java/com/dehghanzadeh/chemtrade/EntryActivity.kt
           grep -q 'CloudStore.pull(prefs)' app/src/main/java/com/dehghanzadeh/chemtrade/MainActivity.kt
           grep -q 'CloudStore.push(prefs)' app/src/main/java/com/dehghanzadeh/chemtrade/MainActivity.kt
-          echo "Cloud persistence hooks are present in the actual build sources"
+          grep -q 'CloudStore.loadUsers(prefs)' app/src/main/java/com/dehghanzadeh/chemtrade/MainActivity.kt
+          grep -q 'مدیریت کاربران' app/src/main/java/com/dehghanzadeh/chemtrade/MainActivity.kt
+          echo "Cloud persistence and admin user management hooks are present in the actual build sources"
 
       - name: Verify JVM target configuration
         run: |
