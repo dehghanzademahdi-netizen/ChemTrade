@@ -1,24 +1,31 @@
 from pathlib import Path
-import re
 
 root = Path('app/src/main/java/com/dehghanzadeh/chemtrade')
 
 # Entry: write every newly completed account to Firebase immediately.
 e = root / 'EntryActivity.kt'
 s = e.read_text(encoding='utf-8')
-old = 'saveRegisteredUser(context, EntryUser(phone, accountType, profileName.trim(), company.trim(), address.trim(), city.trim(), landline)); error = ""; finishLogin(accountType)'
-new = '''saveRegisteredUser(context, EntryUser(phone, accountType, profileName.trim(), company.trim(), address.trim(), city.trim(), landline))
+if 'CloudStore.saveUser' not in s:
+    marker = 'saveRegisteredUser(context, EntryUser(phone, accountType, profileName.trim(), company.trim(), address.trim(), city.trim(), landline))'
+    if marker not in s:
+        raise SystemExit('EntryActivity profile-save marker not found')
+    replacement = '''saveRegisteredUser(context, EntryUser(phone, accountType, profileName.trim(), company.trim(), address.trim(), city.trim(), landline))
                         val saved = EntryUser(phone, accountType, profileName.trim(), company.trim(), address.trim(), city.trim(), landline)
-                        val userJson = org.json.JSONObject().apply { put("phone", saved.phone); put("type", saved.type); put("name", saved.name); put("company", saved.company); put("address", saved.address); put("city", saved.city); put("landline", saved.landline) }
-                        kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.IO) { CloudStore.saveUser(context.getSharedPreferences("chemlink", Context.MODE_PRIVATE), userJson) }
-                        error = ""; finishLogin(accountType)'''
-if old in s:
-    s = s.replace(old, new, 1)
-elif 'CloudStore.saveUser(context.getSharedPreferences("chemlink"' not in s:
-    raise SystemExit('EntryActivity cloud-save hook not found')
+                        val userJson = org.json.JSONObject().apply {
+                            put("phone", saved.phone); put("type", saved.type); put("name", saved.name)
+                            put("company", saved.company); put("address", saved.address); put("city", saved.city); put("landline", saved.landline)
+                        }
+                        val cloudSaved = kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.IO) {
+                            CloudStore.saveUser(context.getSharedPreferences("chemlink", Context.MODE_PRIVATE), userJson)
+                        }
+                        if (!cloudSaved) {
+                            error = "ذخیره آنلاین حساب انجام نشد؛ اتصال اینترنت را بررسی کنید."
+                            return@ProfileScreen
+                        }'''
+    s = s.replace(marker, replacement, 1)
 e.write_text(s, encoding='utf-8')
 
-# MainActivity: ensure an offer save is immediately pushed to Firebase.
+# MainActivity: ensure every offer save is immediately pushed to Firebase.
 m = root / 'MainActivity.kt'
 s = m.read_text(encoding='utf-8')
 if 'val scope = rememberCoroutineScope()' not in s:
@@ -32,8 +39,6 @@ if 'scope.launch(kotlinx.coroutines.Dispatchers.IO) { CloudStore.push(prefs) }' 
     if marker not in s:
         raise SystemExit('MainActivity offer persistence marker not found')
     s = s.replace(marker, marker + '\n        scope.launch(kotlinx.coroutines.Dispatchers.IO) { CloudStore.push(prefs) }', 1)
-
-# The earlier cloud-persistence hook already pulls remote data on startup; do not duplicate it.
 
 # Owner must be able to edit the complete offer, including a published offer.
 old = '''if (offer.status != Status.APPROVED) OutlinedButton({ edit(offer) }) { Text("ویرایش") }; if (offer.status == Status.APPROVED) Button({ correctionText = ""; correctionTarget = offer }) { Text("درخواست اصلاح") }'''
@@ -52,4 +57,10 @@ if old in s:
     s = s.replace(old, new, 1)
 
 m.write_text(s, encoding='utf-8')
-print('REAL CLOUD + FULL OFFER EDIT PATCH OK')
+
+entry = e.read_text(encoding='utf-8')
+main = m.read_text(encoding='utf-8')
+assert 'CloudStore.saveUser' in entry, 'CloudStore.saveUser hook missing from EntryActivity'
+assert 'CloudStore.pull(prefs)' in main, 'CloudStore.pull hook missing from MainActivity'
+assert 'CloudStore.push(prefs)' in main, 'CloudStore.push hook missing from MainActivity'
+print('REAL CLOUD WRITE + OFFER EDIT HOOKS VERIFIED')
