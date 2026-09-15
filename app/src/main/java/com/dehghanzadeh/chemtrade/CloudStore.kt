@@ -21,7 +21,7 @@ object CloudStore {
 
     private data class Response(val code: Int, val body: String?)
 
-    private suspend fun request(method: String, path: String, body: String? = null): Response? = withContext(Dispatchers.IO) {
+    private suspend fun request(method: String, path: String, body: String? = null): Response = withContext(Dispatchers.IO) {
         runCatching {
             val c = (URL("${baseUrl()}/$path.json").openConnection() as HttpURLConnection).apply {
                 requestMethod = method
@@ -38,7 +38,7 @@ object CloudStore {
             val result = stream?.bufferedReader()?.use { it.readText() }
             c.disconnect()
             Response(code, result)
-        }.getOrNull()
+        }.getOrElse { Response(-1, null) }
     }
 
     private fun array(value: String?): JSONArray = runCatching { JSONArray(value ?: "[]") }.getOrDefault(JSONArray())
@@ -50,24 +50,21 @@ object CloudStore {
         if (phone.isBlank()) return false
         val path = "$ROOT/$USERS_BY_PHONE/${encode(phone)}"
         val existingResponse = request("GET", path)
-        val existing = if (existingResponse?.code in 200..299) existingResponse.body?.let { runCatching { JSONObject(it) }.getOrNull() } else null
+        val existing = if (existingResponse.code in 200..299) existingResponse.body?.let { runCatching { JSONObject(it) }.getOrNull() } else null
         val merged = JSONObject(existing?.toString() ?: "{}")
         val keys = userJson.keys()
         while (keys.hasNext()) { val k = keys.next(); merged.put(k, userJson.opt(k)) }
 
-        // Firebase PUT is considered successful by HTTP status; do not require a response body.
-        val put = request("PUT", path, merged.toString()) ?: return false
+        val put = request("PUT", path, merged.toString())
         if (put.code !in 200..299) return false
 
-        // Read back immediately. This makes registration fail only when the account is not actually persisted online.
         val verify = request("GET", path)
-        if (verify?.code !in 200..299) return false
+        if (verify.code !in 200..299) return false
         val verified = verify.body?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return false
         if (verified.optString("phone").filter { it.isDigit() } != phone) return false
 
-        // Keep the legacy users array in sync as well, but do not make it a prerequisite for the account write.
         val usersResponse = request("GET", "$ROOT/$USERS")
-        val users = array(if (usersResponse?.code in 200..299) usersResponse.body else null)
+        val users = array(if (usersResponse.code in 200..299) usersResponse.body else null)
         var found = false
         for (i in 0 until users.length()) {
             val u = users.optJSONObject(i) ?: continue
@@ -82,9 +79,9 @@ object CloudStore {
         val normalized = phone.filter { it.isDigit() }
         if (normalized.isBlank()) return null
         val direct = request("GET", "$ROOT/$USERS_BY_PHONE/${encode(normalized)}")
-        if (direct?.code in 200..299) return direct.body?.let { runCatching { JSONObject(it) }.getOrNull() }
+        if (direct.code in 200..299) return direct.body?.let { runCatching { JSONObject(it) }.getOrNull() }
         val usersResponse = request("GET", "$ROOT/$USERS")
-        val users = array(if (usersResponse?.code in 200..299) usersResponse.body else null)
+        val users = array(if (usersResponse.code in 200..299) usersResponse.body else null)
         for (i in 0 until users.length()) {
             val u = users.optJSONObject(i) ?: continue
             if (u.optString("phone").filter { it.isDigit() } == normalized) return u
@@ -96,7 +93,7 @@ object CloudStore {
         val localUsers = array(prefs.getString(USERS, "[]"))
         val localOffers = array(prefs.getString(OFFERS, "[]"))
         val remoteResponse = request("GET", ROOT)
-        val remote = if (remoteResponse?.code in 200..299) remoteResponse.body?.let { runCatching { JSONObject(it) }.getOrNull() } else null
+        val remote = if (remoteResponse.code in 200..299) remoteResponse.body?.let { runCatching { JSONObject(it) }.getOrNull() } else null
         val remoteUsers = array(remote?.optString(USERS))
         val remoteOffers = array(remote?.optString(OFFERS))
         val mergedUsers = merge(remoteUsers, localUsers) { it.optString("phone").filter { c -> c.isDigit() } }
@@ -109,11 +106,11 @@ object CloudStore {
         }
         val payload = JSONObject().apply { put(USERS, mergedUsers); put(USERS_BY_PHONE, usersByPhone); put(OFFERS, mergedOffers); put("updatedAt", System.currentTimeMillis()) }
         val result = request("PUT", ROOT, payload.toString())
-        return result?.code in 200..299
+        return result.code in 200..299
     }
 
     suspend fun pull(prefs: SharedPreferences): Boolean {
-        val response = request("GET", ROOT) ?: return false
+        val response = request("GET", ROOT)
         if (response.code !in 200..299) return false
         val payload = response.body?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return false
         val byPhone = payload.optJSONObject(USERS_BY_PHONE)
