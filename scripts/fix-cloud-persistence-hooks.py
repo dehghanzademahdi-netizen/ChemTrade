@@ -5,7 +5,7 @@ e = root / 'EntryActivity.kt'
 m = root / 'MainActivity.kt'
 
 # EntryActivity: after SMS verification, query Firebase before deciding whether
-# the user must complete the profile again. Anchor on the stable load call.
+# the user must complete the profile again.
 s = e.read_text(encoding='utf-8')
 if 'CloudStore.loadUser' not in s:
     marker = 'val existing = loadRegisteredUser(context, phone)'
@@ -21,15 +21,14 @@ if 'CloudStore.loadUser' not in s:
     s = s.replace(marker, replacement, 1)
 e.write_text(s, encoding='utf-8')
 
-# MainActivity: insert cloud startup sync immediately before saveOffer(). This
-# anchor survives the other UI/build patches that may alter the offers state line.
+# MainActivity: synchronize cloud state as soon as the main screen starts.
 s = m.read_text(encoding='utf-8')
 if 'CloudStore.pull(prefs)' not in s:
-    marker = '    fun saveOffer(input: Offer) {'
+    marker = '    Scaffold(\n'
     if marker not in s:
-        marker = 'fun saveOffer(input: Offer) {'
+        marker = 'Scaffold(\n'
     if marker not in s:
-        raise SystemExit('MainActivity saveOffer marker not found')
+        raise SystemExit('MainActivity Scaffold marker not found')
     replacement = '''    LaunchedEffect(Unit) {
         CloudStore.pull(prefs)
         offers = loadOffers(prefs)
