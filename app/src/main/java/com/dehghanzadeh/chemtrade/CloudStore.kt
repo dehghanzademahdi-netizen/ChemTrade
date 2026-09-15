@@ -14,26 +14,30 @@ object CloudStore {
     private const val USERS = "users"
     private const val USERS_BY_PHONE = "usersByPhone"
     private const val OFFERS = "offers"
+    private const val DB_URL = "https://chemlink-8909b-default-rtdb.firebaseio.com"
 
-    // The uploaded Firebase configuration identifies project chemlink-8909b.
-    // Keep the build property override, but never disable cloud persistence when it is absent.
-    private fun baseUrl(): String = (BuildConfig.CHEMLINK_FIREBASE_DB_URL.ifBlank { "https://chemlink-8909b-default-rtdb.firebaseio.com" }).trimEnd('/')
+    private fun baseUrl(): String = DB_URL
     fun enabled(): Boolean = true
 
-    private suspend fun request(method: String, path: String, body: String? = null): String? = withContext(Dispatchers.IO) {
+    private data class Response(val code: Int, val body: String?)
+
+    private suspend fun request(method: String, path: String, body: String? = null): Response? = withContext(Dispatchers.IO) {
         runCatching {
             val c = (URL("${baseUrl()}/$path.json").openConnection() as HttpURLConnection).apply {
                 requestMethod = method
-                connectTimeout = 10000
-                readTimeout = 15000
+                connectTimeout = 15000
+                readTimeout = 20000
+                useCaches = false
+                setRequestProperty("Accept", "application/json")
                 setRequestProperty("Content-Type", "application/json; charset=utf-8")
                 if (body != null) doOutput = true
             }
             body?.let { c.outputStream.use { out -> out.write(it.toByteArray(Charsets.UTF_8)) } }
-            val stream = if (c.responseCode in 200..299) c.inputStream else c.errorStream
+            val code = c.responseCode
+            val stream = if (code in 200..299) c.inputStream else c.errorStream
             val result = stream?.bufferedReader()?.use { it.readText() }
             c.disconnect()
-            if (result.isNullOrBlank() || result == "null") null else result
+            Response(code, result)
         }.getOrNull()
     }
 
@@ -45,18 +49,31 @@ object CloudStore {
         val phone = userJson.optString("phone").filter { it.isDigit() }
         if (phone.isBlank()) return false
         val path = "$ROOT/$USERS_BY_PHONE/${encode(phone)}"
-        val existing = request("GET", path)?.let { runCatching { JSONObject(it) }.getOrNull() }
+        val existingResponse = request("GET", path)
+        val existing = if (existingResponse?.code in 200..299) existingResponse.body?.let { runCatching { JSONObject(it) }.getOrNull() } else null
         val merged = JSONObject(existing?.toString() ?: "{}")
         val keys = userJson.keys()
         while (keys.hasNext()) { val k = keys.next(); merged.put(k, userJson.opt(k)) }
-        if (request("PUT", path, merged.toString()) == null) return false
-        val users = array(request("GET", "$ROOT/$USERS"))
+
+        // Firebase PUT is considered successful by HTTP status; do not require a response body.
+        val put = request("PUT", path, merged.toString()) ?: return false
+        if (put.code !in 200..299) return false
+
+        // Read back immediately. This makes registration fail only when the account is not actually persisted online.
+        val verify = request("GET", path)
+        if (verify?.code !in 200..299) return false
+        val verified = verify.body?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return false
+        if (verified.optString("phone").filter { it.isDigit() } != phone) return false
+
+        // Keep the legacy users array in sync as well, but do not make it a prerequisite for the account write.
+        val usersResponse = request("GET", "$ROOT/$USERS")
+        val users = array(if (usersResponse?.code in 200..299) usersResponse.body else null)
         var found = false
         for (i in 0 until users.length()) {
             val u = users.optJSONObject(i) ?: continue
-            if (u.optString("phone").filter { it.isDigit() } == phone) { users.put(i, merged); found = true; break }
+            if (u.optString("phone").filter { it.isDigit() } == phone) { users.put(i, verified); found = true; break }
         }
-        if (!found) users.put(merged)
+        if (!found) users.put(verified)
         request("PUT", "$ROOT/$USERS", users.toString())
         return true
     }
@@ -65,8 +82,9 @@ object CloudStore {
         val normalized = phone.filter { it.isDigit() }
         if (normalized.isBlank()) return null
         val direct = request("GET", "$ROOT/$USERS_BY_PHONE/${encode(normalized)}")
-        if (direct != null) return runCatching { JSONObject(direct) }.getOrNull()
-        val users = array(request("GET", "$ROOT/$USERS"))
+        if (direct?.code in 200..299) return direct.body?.let { runCatching { JSONObject(it) }.getOrNull() }
+        val usersResponse = request("GET", "$ROOT/$USERS")
+        val users = array(if (usersResponse?.code in 200..299) usersResponse.body else null)
         for (i in 0 until users.length()) {
             val u = users.optJSONObject(i) ?: continue
             if (u.optString("phone").filter { it.isDigit() } == normalized) return u
@@ -77,7 +95,8 @@ object CloudStore {
     suspend fun push(prefs: SharedPreferences): Boolean {
         val localUsers = array(prefs.getString(USERS, "[]"))
         val localOffers = array(prefs.getString(OFFERS, "[]"))
-        val remote = request("GET", ROOT)?.let { runCatching { JSONObject(it) }.getOrNull() }
+        val remoteResponse = request("GET", ROOT)
+        val remote = if (remoteResponse?.code in 200..299) remoteResponse.body?.let { runCatching { JSONObject(it) }.getOrNull() } else null
         val remoteUsers = array(remote?.optString(USERS))
         val remoteOffers = array(remote?.optString(OFFERS))
         val mergedUsers = merge(remoteUsers, localUsers) { it.optString("phone").filter { c -> c.isDigit() } }
@@ -89,11 +108,14 @@ object CloudStore {
             if (p.isNotBlank()) usersByPhone.put(p, u)
         }
         val payload = JSONObject().apply { put(USERS, mergedUsers); put(USERS_BY_PHONE, usersByPhone); put(OFFERS, mergedOffers); put("updatedAt", System.currentTimeMillis()) }
-        return request("PUT", ROOT, payload.toString()) != null
+        val result = request("PUT", ROOT, payload.toString())
+        return result?.code in 200..299
     }
 
     suspend fun pull(prefs: SharedPreferences): Boolean {
-        val payload = request("GET", ROOT)?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return false
+        val response = request("GET", ROOT) ?: return false
+        if (response.code !in 200..299) return false
+        val payload = response.body?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return false
         val byPhone = payload.optJSONObject(USERS_BY_PHONE)
         val users = if (byPhone != null) JSONArray().also { out -> val keys = byPhone.keys(); while (keys.hasNext()) { byPhone.optJSONObject(keys.next())?.let(out::put) } } else array(payload.optString(USERS))
         val offers = array(payload.optString(OFFERS))
