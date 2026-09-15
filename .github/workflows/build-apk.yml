@@ -23,6 +23,8 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools
 
       - name: Install Android SDK packages
         run: |
@@ -44,16 +46,12 @@ jobs:
             --data "\"$TEST_VALUE\"")
           echo "PUT HTTP $HTTP_CODE"
           test "$HTTP_CODE" = "200"
-          PUT_BODY=$(cat /tmp/firebase_put.json)
-          test "$PUT_BODY" = "\"$TEST_VALUE\""
-          HTTP_CODE=$(curl -sS -o /tmp/firebase_get.json -w '%{http_code}' \
-            "$DB_URL/$TEST_PATH.json")
+          test "$(cat /tmp/firebase_put.json)" = "\"$TEST_VALUE\""
+          HTTP_CODE=$(curl -sS -o /tmp/firebase_get.json -w '%{http_code}' "$DB_URL/$TEST_PATH.json")
           echo "GET HTTP $HTTP_CODE"
           test "$HTTP_CODE" = "200"
-          GET_BODY=$(cat /tmp/firebase_get.json)
-          test "$GET_BODY" = "\"$TEST_VALUE\""
-          HTTP_CODE=$(curl -sS -o /tmp/firebase_delete.json -w '%{http_code}' \
-            -X DELETE "$DB_URL/$TEST_PATH.json")
+          test "$(cat /tmp/firebase_get.json)" = "\"$TEST_VALUE\""
+          HTTP_CODE=$(curl -sS -o /tmp/firebase_delete.json -w '%{http_code}' -X DELETE "$DB_URL/$TEST_PATH.json")
           echo "DELETE HTTP $HTTP_CODE"
           test "$HTTP_CODE" = "200"
           echo "Firebase read/write smoke test PASSED"
@@ -113,6 +111,14 @@ jobs:
 
       - name: Apply real cloud writes and full offer editing
         run: python3 scripts/fix-real-cloud-and-offer-edit.py
+
+      - name: Verify injected cloud persistence in build sources
+        run: |
+          grep -q 'CloudStore.loadUser' app/src/main/java/com/dehghanzadeh/chemtrade/EntryActivity.kt
+          grep -q 'CloudStore.saveUser' app/src/main/java/com/dehghanzadeh/chemtrade/EntryActivity.kt
+          grep -q 'CloudStore.pull(prefs)' app/src/main/java/com/dehghanzadeh/chemtrade/MainActivity.kt
+          grep -q 'CloudStore.push(prefs)' app/src/main/java/com/dehghanzadeh/chemtrade/MainActivity.kt
+          echo "Cloud persistence hooks are present in the actual build sources"
 
       - name: Verify JVM target configuration
         run: |
