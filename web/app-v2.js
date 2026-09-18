@@ -4,8 +4,8 @@ const API_KEY='AIzaSyDeiURyc0INZpvA00hmRnEqwtGW3h63pgE';
 let confirmationResult=null,recaptchaVerifier=null,listings=[];
 const $=id=>document.getElementById(id);
 const loggedIn=()=>sessionStorage.getItem('chemlinkLoggedIn')==='1';
-function showLogin(){const m=$('modal');if(!m)return;m.classList.add('show');m.setAttribute('aria-hidden','false');setTimeout(()=>$('phone')?.focus(),50)}
-function hideLogin(){const m=$('modal');if(!m)return;m.classList.remove('show');m.setAttribute('aria-hidden','true')}
+function showLogin(){const m=$('modal');if(!m)return;m.classList.add('show','open');m.setAttribute('aria-hidden','false');setTimeout(()=>$('phone')?.focus(),50)}
+function hideLogin(){const m=$('modal');if(!m)return;m.classList.remove('show','open');m.setAttribute('aria-hidden','true')}
 function normalizePhone(v){v=(v||'').replace(/\s|-/g,'');return v.startsWith('+98')?'0'+v.slice(3):v}
 function validPhone(v){return /^09\d{9}$/.test(v)}
 async function loadFirebase(){if(!window.firebase)throw new Error('Firebase SDK بارگذاری نشده است.');if(!firebase.apps.length)firebase.initializeApp({apiKey:API_KEY,authDomain:`${PROJECT_ID}.firebaseapp.com`,projectId:PROJECT_ID});if(!firebase.auth)throw new Error('Firebase Authentication SDK بارگذاری نشده است.');return firebase.auth()}
