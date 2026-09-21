@@ -18,4 +18,4 @@ jobs:
         run: cd ios && xcodegen generate
       - name: Build for iOS Simulator
         run: |
-          xcodebuild -project ios/ChemLink.xcodeproj             -scheme ChemLink             -sdk iphonesimulator             -destination 'platform=iOS Simulator,name=iPhone 16'             -configuration Debug             CODE_SIGNING_ALLOWED=NO             build
+          xcodebuild -project ios/ChemLink.xcodeproj             -scheme ChemLink             -sdk iphonesimulator             -destination 'platform=iOS Simulator,name=iPhone 17 Pro'             -configuration Debug             CODE_SIGNING_ALLOWED=NO             build
