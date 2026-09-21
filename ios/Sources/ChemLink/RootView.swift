@@ -65,7 +65,7 @@ struct MarketView: View {
             .padding(.horizontal)
 
             if filtered.isEmpty {
-                ContentUnavailableView("آگهی تأییدشده‌ای وجود ندارد", systemImage: "shippingbox")
+                VStack(spacing: 10) { Image(systemName: "shippingbox").font(.largeTitle); Text("آگهی تأییدشده‌ای وجود ندارد").font(.headline) }.frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 List(filtered) { item in
                     VStack(alignment: .leading, spacing: 6) {
