@@ -1,0 +1,21 @@
+name: Build ChemLink iOS
+
+on:
+  push:
+    paths:
+      - "ios/**"
+      - ".github/workflows/build-ios.yml"
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        run: cd ios && xcodegen generate
+      - name: Build for iOS Simulator
+        run: |
+          xcodebuild -project ios/ChemLink.xcodeproj             -scheme ChemLink             -sdk iphonesimulator             -destination 'platform=iOS Simulator,name=iPhone 16'             -configuration Debug             CODE_SIGNING_ALLOWED=NO             build
