@@ -1,5 +1,5 @@
-const CACHE='chemlink-web-v5';
-const ASSETS=['./','./index.html','./styles.css','./manifest.webmanifest'];
+const CACHE='chemlink-web-v6';
+const ASSETS=['./','./index.html','./styles.css','./manifest.webmanifest','./icons/chemlink-192.svg','./icons/chemlink-512.svg','./icons/chemlink-180.svg'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{
