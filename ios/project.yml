@@ -1,0 +1,19 @@
+name: ChemLink
+options:
+  bundleIdPrefix: com.dehghanzadeh
+  deploymentTarget:
+    iOS: "16.0"
+targets:
+  ChemLink:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources/ChemLink
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dehghanzadeh.chemlink
+        SWIFT_VERSION: "5.9"
+        INFOPLIST_KEY_CFBundleDisplayName: ChemLink
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: true
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.business
+        INFOPLIST_KEY_UILaunchScreen_Generation: true
