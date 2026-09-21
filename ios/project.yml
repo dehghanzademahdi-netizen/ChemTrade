@@ -16,4 +16,5 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: ChemLink
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: true
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.business
+        GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_UILaunchScreen_Generation: true
