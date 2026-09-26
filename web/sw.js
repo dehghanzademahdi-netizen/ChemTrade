@@ -1,4 +1,4 @@
-const CACHE='chemlink-web-v9';
+const CACHE='chemlink-web-v10';
 const ASSETS=['./','./index.html','./styles.css','./manifest.webmanifest','./icons/chemlink-192.svg','./icons/chemlink-512.svg','./icons/chemlink-180.svg','./icons/chemlink-180.png'];
 
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));
