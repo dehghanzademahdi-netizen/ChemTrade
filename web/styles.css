@@ -35,7 +35,7 @@ body:before{content:"";position:fixed;inset:0;z-index:-1;background-image:var(--
 
 /* Hero visual balance: use the upper half of the card as an industrial visual field instead of leaving dead space */
 .hero-brand-stage{position:relative;isolation:isolate;overflow:hidden;}
-.hero-brand-stage:before{content:"";position:absolute;inset:0 0 46% 0;background:linear-gradient(180deg,rgba(235,248,255,.18),rgba(255,255,255,.58)),var(--refinery-bg);background-size:cover;background-position:center 42%;opacity:.72;border-radius:26px;filter:saturate(.82);z-index:-1;}
+.hero-brand-stage:before{content:"";position:absolute;inset:0 0 46% 0;background:radial-gradient(circle at 78% 34%,rgba(25,165,215,.20),transparent 22%),radial-gradient(circle at 30% 78%,rgba(8,91,150,.10),transparent 28%),linear-gradient(135deg,#eaf8ff 0%,#f9fcff 52%,#cfeef8 100%);opacity:1;border-radius:26px;box-shadow:inset 0 -30px 45px rgba(255,255,255,.35);z-index:-1;}
 .hero-brand-stage:after{content:"CHEMICAL MARKETPLACE";position:absolute;top:24px;left:28px;font-size:10px;letter-spacing:3px;font-weight:800;color:rgba(8,65,105,.58);z-index:0;}
 .hero-brand-image{position:relative;z-index:2;margin-top:auto;}
 .hero-stat{z-index:3;}
