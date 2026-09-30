@@ -63,3 +63,25 @@ body:before{content:"";position:fixed;inset:0;z-index:-1;background-image:var(--
 .p1{top:28%;left:17%}.p2{top:63%;right:13%}
 @media(max-width:900px){.hero-card{height:420px}.hero-logo-plate{left:7%;right:7%;bottom:65px;height:175px;padding:20px}.hero-brand-image{max-height:125px}.hero-visual-top{top:20px;left:22px;right:22px}.hero-visual-footer{left:22px;right:22px;bottom:18px}}
 @media(max-width:560px){.hero-card{height:330px;border-radius:26px}.hero-visual-top{top:17px;left:18px;right:18px}.hero-visual-top b{display:none}.hero-logo-plate{left:6%;right:6%;bottom:54px;height:145px;border-radius:20px;padding:14px}.hero-logo-caption{font-size:7px;letter-spacing:2px;margin-bottom:4px}.hero-brand-image{max-height:105px}.hero-visual-footer{left:18px;right:18px;bottom:14px;font-size:8px}.orbit-a{width:220px;height:220px}.orbit-b{width:155px;height:155px}}
+
+/* ChemLink unified brand system — approved logo / app icon treatment */
+.hero-logo-plate{left:7%;right:7%;bottom:68px;height:238px;padding:18px 24px 14px;border-radius:28px;background:rgba(255,255,255,.98);box-shadow:0 25px 65px rgba(0,20,38,.28)}
+.hero-logo-caption{font-size:8px;letter-spacing:2.6px;margin-bottom:6px}
+.hero-brand-image{width:min(100%,500px);height:auto;max-width:100%;max-height:198px;object-fit:contain;object-position:center;display:block;border-radius:0;box-shadow:none}
+.app-brand-icon{width:46px;height:46px;flex:0 0 46px;border-radius:12px;object-fit:cover;display:block;box-shadow:0 5px 14px rgba(0,0,0,.16)}
+.app-top-btn .app-brand-icon{width:40px;height:40px;flex-basis:40px;border-radius:11px}
+.app-option .app-brand-icon{width:44px;height:44px;flex-basis:44px;border-radius:12px}
+.app-brand-pair{display:flex;align-items:center;gap:8px}
+.app-brand-pair .platform-label{display:flex;flex-direction:column;gap:1px}
+.app-brand-pair .platform-label strong{font-size:12px}
+.app-brand-pair .platform-label small{font-size:9px;color:#98a2b3}
+@media(max-width:900px){
+  .hero-logo-plate{left:7%;right:7%;bottom:58px;height:205px;padding:15px 20px 12px}
+  .hero-brand-image{max-height:168px}
+}
+@media(max-width:560px){
+  .hero-logo-plate{left:6%;right:6%;bottom:48px;height:160px;border-radius:20px;padding:10px 12px 8px}
+  .hero-logo-caption{font-size:6px;letter-spacing:1.7px;margin-bottom:3px}
+  .hero-brand-image{max-height:132px}
+  .app-brand-icon{width:42px;height:42px;flex-basis:42px}
+}
