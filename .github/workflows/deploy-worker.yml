@@ -17,6 +17,8 @@ jobs:
           node-version: 22
       - name: Install Wrangler
         run: npm install --no-save wrangler@latest
+      - name: Verify Cloudflare access
+        run: npx wrangler whoami
       - name: Deploy Worker
         run: npx wrangler deploy --log-level debug
         env:
