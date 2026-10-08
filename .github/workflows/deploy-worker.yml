@@ -17,6 +17,20 @@ jobs:
           node-version: 22
       - name: Install Wrangler
         run: npm install --no-save wrangler@latest
+      - name: Bind ChemLink D1 database
+        run: |
+          npx wrangler d1 list --json > /tmp/d1.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const cfg = JSON.parse(fs.readFileSync('wrangler.json','utf8'));
+          const dbs = JSON.parse(fs.readFileSync('/tmp/d1.json','utf8'));
+          const db = dbs.find(x => x.name === 'chemlink-otp');
+          if (!db) throw new Error('D1 database chemlink-otp not found');
+          const id = db.uuid || db.database_id || db.id;
+          if (!id) throw new Error('D1 database ID not found');
+          cfg.d1_databases = [{ binding: 'DB', database_name: 'chemlink-otp', database_id: id }];
+          fs.writeFileSync('wrangler.json', JSON.stringify(cfg, null, 2) + '\\n');
+          NODE
       - name: Deploy Worker
         run: npx wrangler deploy
         env:
