@@ -23,6 +23,7 @@ export default {
         worker: "chemlink",
         build: "otp-db-diagnostic-1",
         dbBinding: Boolean(env.DB),
+        availableBindings: Object.keys(env),
         smsConfigured: Boolean(env.SMS_IR_API_KEY),
         host: url.host
       });
