@@ -9,16 +9,18 @@ export async function onRequestPost({request,env}){
   if(!env.DB)return json({ok:false,error:"پایگاه داده سرویس فعال نیست."},503);
   const body=await request.json().catch(()=>({}));const phone=normalizePhone(body.phone);const code=String(body.code||"").trim();const purpose=body.purpose==="admin"?"admin":"user";
   if(!phone||!/^[0-9]{6}$/.test(code))return json({ok:false,error:"شماره موبایل یا کد تأیید معتبر نیست."},400);
-  await schema(env.DB);
-  const row=await env.DB.prepare("SELECT * FROM otp_codes WHERE phone=? AND purpose=?").bind(phone,purpose).first();
+  // Read from the primary so a newly issued OTP is immediately visible.
+  const db=env.DB.withSession("first-primary");
+  await schema(db);
+  const row=await db.prepare("SELECT * FROM otp_codes WHERE phone=? AND purpose=?").bind(phone,purpose).first();
   if(!row)return json({ok:false,error:"کد تأیید پیدا نشد. دوباره درخواست کد کنید."},404);
-  if(Date.now()>Number(row.expires_at)){await env.DB.prepare("DELETE FROM otp_codes WHERE phone=? AND purpose=?").bind(phone,purpose).run();return json({ok:false,error:"کد تأیید منقضی شده است."},410);}
+  if(Date.now()>Number(row.expires_at)){await db.prepare("DELETE FROM otp_codes WHERE phone=? AND purpose=?").bind(phone,purpose).run();return json({ok:false,error:"کد تأیید منقضی شده است."},410);}
   const attempts=Number(row.attempts||0);
-  if(attempts>=5){await env.DB.prepare("DELETE FROM otp_codes WHERE phone=? AND purpose=?").bind(phone,purpose).run();return json({ok:false,error:"تعداد تلاش‌ها بیش از حد مجاز است. دوباره کد بگیرید."},429);}
-  if(await sha256(code)!==String(row.code_hash)){await env.DB.prepare("UPDATE otp_codes SET attempts=attempts+1 WHERE phone=? AND purpose=?").bind(phone,purpose).run();return json({ok:false,error:"کد تأیید صحیح نیست."},400);}
-  await env.DB.prepare("DELETE FROM otp_codes WHERE phone=? AND purpose=?").bind(phone,purpose).run();
+  if(attempts>=5){await db.prepare("DELETE FROM otp_codes WHERE phone=? AND purpose=?").bind(phone,purpose).run();return json({ok:false,error:"تعداد تلاش‌ها بیش از حد مجاز است. دوباره کد بگیرید."},429);}
+  if(await sha256(code)!==String(row.code_hash)){await db.prepare("UPDATE otp_codes SET attempts=attempts+1 WHERE phone=? AND purpose=?").bind(phone,purpose).run();return json({ok:false,error:"کد تأیید صحیح نیست."},400);}
+  await db.prepare("DELETE FROM otp_codes WHERE phone=? AND purpose=?").bind(phone,purpose).run();
   const rawToken=makeToken();const now=Date.now();
-  await env.DB.prepare("INSERT INTO sessions(token_hash,phone,purpose,created_at,expires_at) VALUES(?,?,?,?,?)").bind(await sha256(rawToken),phone,purpose,now,now+SESSION_TTL_MS).run();
+  await db.prepare("INSERT INTO sessions(token_hash,phone,purpose,created_at,expires_at) VALUES(?,?,?,?,?)").bind(await sha256(rawToken),phone,purpose,now,now+SESSION_TTL_MS).run();
   return json({ok:true,token:rawToken,phone,expiresAt:now+SESSION_TTL_MS});
  }catch(e){console.error(e);return json({ok:false,error:"خطای داخلی هنگام تأیید کد."},500);}
 }
