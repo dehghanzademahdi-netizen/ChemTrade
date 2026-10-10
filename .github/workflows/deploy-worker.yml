@@ -32,7 +32,7 @@ jobs:
           const id = db.uuid || db.database_id || db.id;
           if (!id) throw new Error('D1 database ID not found');
           cfg.d1_databases = [{ binding: 'DB', database_name: 'chemlink-otp', database_id: id }];
-          fs.writeFileSync('wrangler.json', JSON.stringify(cfg, null, 2) + '\\n');
+          fs.writeFileSync('wrangler.json', JSON.stringify(cfg, null, 2) + '\n');
           NODE
       - name: Deploy Worker
         run: npx wrangler deploy
