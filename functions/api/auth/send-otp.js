@@ -41,7 +41,8 @@ async function ensureSchema(db) {
 }
 export async function onRequestPost({request, env}) {
   try {
-    if (!env.DB || !env.SMS_IR_API_KEY) return json({ok:false,error:"سرویس پیامکی هنوز پیکربندی نشده است."},503);
+    if (!env.DB) return json({ok:false,error:"اتصال پایگاه داده ورود پیامکی (DB) در Worker فعال نیست."},503);
+    if (!env.SMS_IR_API_KEY) return json({ok:false,error:"کلید SMS_IR_API_KEY در محیط Production همین Worker در دسترس نیست."},503);
     const body = await request.json().catch(()=>({}));
     const phone = normalizePhone(body.phone);
     const purpose = body.purpose === "admin" ? "admin" : "user";
