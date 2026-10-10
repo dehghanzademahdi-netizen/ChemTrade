@@ -61,7 +61,15 @@
   try{
    var endpoint=step==='send'?'/api/auth/send-otp':'/api/auth/verify-otp';
    var payload=step==='send'?{phone:n,purpose:'user'}:{phone:n,code:(o.value||'').replace(/\D/g,''),purpose:'user'};
-   var r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),cache:'no-store'});
+   var controller=new AbortController();
+   var requestTimer=setTimeout(function(){controller.abort()},15000);
+   var r;
+   try{
+    r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),cache:'no-store',signal:controller.signal});
+   }catch(networkError){
+    if(networkError&&networkError.name==='AbortError')throw new Error('سرور در ۱۵ ثانیه پاسخ نداد. ممکن است کد مصرف شده باشد؛ صفحه را تازه کنید و اگر وارد نشدید کد جدید بگیرید.');
+    throw new Error('ارتباط با سرور تأیید برقرار نشد. اتصال اینترنت را بررسی کنید و دوباره تلاش کنید.');
+   }finally{clearTimeout(requestTimer)}
    var d=await r.json().catch(function(){return {}});
    if(!r.ok||!d.ok)throw new Error(d.error||('خطا در ارتباط با سرویس ('+r.status+')'));
    if(step==='send'){
