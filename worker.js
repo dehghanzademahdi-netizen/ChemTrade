@@ -16,6 +16,18 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
+    // Safe runtime diagnostic: exposes binding presence only, never secrets or database contents.
+    if (url.pathname === "/api/health" && request.method === "GET") {
+      return json({
+        ok: true,
+        worker: "chemlink",
+        build: "otp-db-diagnostic-1",
+        dbBinding: Boolean(env.DB),
+        smsConfigured: Boolean(env.SMS_IR_API_KEY),
+        host: url.host
+      });
+    }
+
     if (url.pathname === "/api/auth/send-otp" && request.method === "POST") {
       return sendOtp({ request, env, ctx });
     }
