@@ -33,6 +33,30 @@ jobs:
           if (!id) throw new Error('D1 database ID not found');
           cfg.d1_databases = [{ binding: 'DB', database_name: 'chemlink-otp', database_id: id }];
           fs.writeFileSync('wrangler.json', JSON.stringify(cfg, null, 2) + '\n');
+          console.log('Configured D1 binding DB -> chemlink-otp');
           NODE
       - name: Deploy Worker
-        run: npx wrangler deploy
+        run: npx wrangler deploy --config wrangler.json
+      - name: Verify production D1 binding
+        run: |
+          node --input-type=module <<'NODE'
+          const url = 'https://chemlink.shop/api/health';
+          let last;
+          for (let attempt = 1; attempt <= 12; attempt++) {
+            try {
+              const response = await fetch(url, { cache: 'no-store' });
+              const data = await response.json();
+              console.log('Production health check', attempt, JSON.stringify(data));
+              if (response.ok && data.worker === 'chemlink' && data.dbBinding === true) {
+                console.log('Production Worker confirms DB binding is active.');
+                process.exit(0);
+              }
+              last = new Error('Production Worker does not expose DB binding.');
+            } catch (error) {
+              last = error;
+              console.log('Health check attempt failed:', String(error));
+            }
+            await new Promise(resolve => setTimeout(resolve, 5000));
+          }
+          throw last || new Error('Production DB binding verification failed.');
+          NODE
