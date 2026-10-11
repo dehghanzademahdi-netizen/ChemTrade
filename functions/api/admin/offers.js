@@ -47,7 +47,7 @@ export async function onRequestPost({request,env}){
   if(!id||!["APPROVED","REJECTED","PENDING"].includes(status))return json({ok:false,error:"شناسه یا وضعیت آگهی معتبر نیست."},400);
   const offers=await readOffers();const index=offers.findIndex(o=>o&&String(o.id)===id);
   if(index<0)return json({ok:false,error:"آگهی در فضای ابری پیدا نشد."},404);
-  const old=offers[index];const marginType=body.marginType==="TOMAN"?"TOMAN":"PERCENT";
+  const old=offers[index];if(status==="APPROVED"&&amount(old.official)===null&&amount(old.market)===null)return json({ok:false,error:"برای انتشار، حداقل یکی از قیمت‌های رسمی یا غیررسمی باید عدد قابل محاسبه داشته باشد."},400);const marginType=body.marginType==="TOMAN"?"TOMAN":"PERCENT";
   const margin=Math.max(0,Math.min(100000000000,Number(body.margin)||0));
   const reason=String(body.reason||"").trim().slice(0,1000);
   const updated={...old,status,reason,marginType,margin,updatedAt:Date.now()};
