@@ -24,53 +24,65 @@ jobs:
           node-version: 22
       - name: Install Wrangler
         run: npm install --no-save wrangler@latest
-      - name: Bind ChemLink D1 database
+      - name: Verify configured D1 database
         run: |
-          npx wrangler d1 list --json > /tmp/d1.json
           node - <<'NODE'
           const fs = require('fs');
-          const cfg = JSON.parse(fs.readFileSync('wrangler.json','utf8'));
-          const dbs = JSON.parse(fs.readFileSync('/tmp/d1.json','utf8'));
-          const db = dbs.find(x => x.name === 'chemlink-otp');
-          if (!db) throw new Error('D1 database chemlink-otp not found');
-          const id = db.uuid || db.database_id || db.id;
-          if (!id) throw new Error('D1 database ID not found');
-          cfg.d1_databases = [{ binding: 'DB', database_name: 'chemlink-otp', database_id: id }];
-          fs.writeFileSync('wrangler.json', JSON.stringify(cfg, null, 2) + '\n');
-          console.log(`Configured D1 binding DB -> chemlink-otp (${id})`);
+          const cfg = JSON.parse(fs.readFileSync('wrangler.json', 'utf8'));
+          const db = (cfg.d1_databases || []).find(x => x.binding === 'DB' && x.database_name === 'chemlink-otp');
+          if (!db || db.database_id !== 'c97a0b11-c7ab-45b8-8b6e-04687398adf6') {
+            throw new Error('wrangler.json must bind DB to the production chemlink-otp database');
+          }
+          console.log('Verified persistent DB binding:', db.binding, '->', db.database_name);
           NODE
       - name: Deploy Worker
         run: npx wrangler deploy --config wrangler.json
-      - name: Verify production D1 binding
+      - name: Verify production health and OTP route
         run: |
           node --input-type=module <<'NODE'
-          const url = 'https://chemlink.shop/api/health';
+          const base = 'https://chemlink.shop';
           let last;
           let consecutiveGood = 0;
-          for (let attempt = 1; attempt <= 18; attempt++) {
+          for (let attempt = 1; attempt <= 24; attempt++) {
             try {
-              const response = await fetch(url + '?verify=' + Date.now(), {
+              const healthResponse = await fetch(base + '/api/health?verify=' + Date.now(), {
                 cache: 'no-store',
                 headers: { 'cache-control': 'no-cache', 'pragma': 'no-cache' }
               });
-              const data = await response.json();
-              console.log('Production health check', attempt, JSON.stringify(data));
-              if (response.ok && data.worker === 'chemlink' && data.dbBinding === true) {
+              const health = await healthResponse.json();
+              console.log('Health check', attempt, JSON.stringify(health));
+
+              const otpResponse = await fetch(base + '/api/auth/send-otp?verify=' + Date.now(), {
+                method: 'POST',
+                cache: 'no-store',
+                headers: { 'content-type': 'application/json', 'cache-control': 'no-cache' },
+                body: JSON.stringify({ phone: 'invalid', purpose: 'user' })
+              });
+              const otp = await otpResponse.json().catch(() => ({}));
+              console.log('OTP route diagnostic', otpResponse.status, JSON.stringify(otp));
+
+              const good = healthResponse.ok &&
+                health.worker === 'chemlink' &&
+                health.build === 'otp-profile-flow-3-db-repair' &&
+                health.dbBinding === true &&
+                otpResponse.status === 400 &&
+                String(otp.error || '').includes('شماره موبایل معتبر نیست');
+              if (good) {
                 consecutiveGood++;
                 if (consecutiveGood >= 3) {
-                  console.log('Production Worker confirms DB binding is stable across three checks.');
+                  console.log('Production health and OTP route both confirm the D1 binding.');
                   process.exit(0);
                 }
               } else {
                 consecutiveGood = 0;
-                last = new Error('Production Worker does not expose DB binding.');
+                last = new Error('Production health or OTP endpoint is still serving an old/misconfigured deployment.');
               }
             } catch (error) {
               consecutiveGood = 0;
               last = error;
-              console.log('Health check attempt failed:', String(error));
+              console.log('Production verification attempt failed:', String(error));
             }
             await new Promise(resolve => setTimeout(resolve, 10000));
           }
-          throw last || new Error('Production DB binding verification failed.');
+          throw last || new Error('Production Worker verification failed.');
           NODE
