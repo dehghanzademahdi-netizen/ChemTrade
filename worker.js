@@ -20,6 +20,8 @@ export default {
     if (url.pathname === "/api/auth/me" && request.method === "GET") return me({request,env,ctx});
     if (url.pathname === "/api/auth/profile" && request.method === "GET") return getProfile({request,env,ctx});
     if (url.pathname === "/api/auth/profile" && request.method === "POST") return saveProfile({request,env,ctx});
+    if (url.pathname === "/api/offers" && request.method === "GET") return getOffers({request,env,ctx});
+    if (url.pathname === "/api/offers" && request.method === "POST") return createOffer({request,env,ctx});
     return env.ASSETS.fetch(request);
   }
 };
