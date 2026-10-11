@@ -42,10 +42,17 @@ e.write_text(s, encoding='utf-8')
 m = root / 'MainActivity.kt'
 s = m.read_text(encoding='utf-8')
 if 'val scope = rememberCoroutineScope()' not in s:
-    needle = 'val context = LocalContext.current\n'
-    if needle not in s:
-        raise SystemExit('MainActivity context hook not found')
-    s = s.replace(needle, needle + '    val scope = rememberCoroutineScope()\n', 1)
+    main_start = s.find('private fun MainScreen')
+    if main_start < 0:
+        raise SystemExit('MainScreen marker not found')
+    needle = 'val context = LocalContext.current'
+    context_pos = s.find(needle, main_start)
+    if context_pos < 0:
+        raise SystemExit('MainScreen context hook not found')
+    line_end = s.find('\\n', context_pos)
+    if line_end < 0:
+        raise SystemExit('MainScreen context line ending not found')
+    s = s[:line_end + 1] + '    val scope = rememberCoroutineScope()\\n' + s[line_end + 1:]
 
 if 'scope.launch(kotlinx.coroutines.Dispatchers.IO) { CloudStore.push(prefs) }' not in s:
     marker = 'persistOffers(prefs, list)'
