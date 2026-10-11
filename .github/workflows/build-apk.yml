@@ -118,11 +118,11 @@ jobs:
         run: |
           grep -q 'CloudStore.loadUser' app/src/main/java/com/dehghanzadeh/chemtrade/EntryActivity.kt
           grep -q 'CloudStore.saveUser' app/src/main/java/com/dehghanzadeh/chemtrade/EntryActivity.kt
-          grep -q 'CloudStore.pull(prefs)' app/src/main/java/com/dehghanzadeh/chemtrade/MainActivity.kt
-          grep -q 'CloudStore.push(prefs)' app/src/main/java/com/dehghanzadeh/chemtrade/MainActivity.kt
+          grep -q 'ChemLinkOffersApi.adminOffers' app/src/main/java/com/dehghanzadeh/chemtrade/MainActivity.kt
+          grep -q 'ChemLinkOffersApi.createOrUpdate' app/src/main/java/com/dehghanzadeh/chemtrade/MainActivity.kt
           grep -q 'CloudStore.loadUsers(prefs)' app/src/main/java/com/dehghanzadeh/chemtrade/MainActivity.kt
           grep -q 'مدیریت کاربران' app/src/main/java/com/dehghanzadeh/chemtrade/MainActivity.kt
-          echo "Cloud persistence and admin user management hooks are present in the actual build sources"
+          echo "Shared cloud offers API, cloud account persistence, and admin user management are present in the build sources"
 
       - name: Verify JVM target configuration
         run: |
