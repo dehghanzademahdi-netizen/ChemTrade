@@ -131,8 +131,28 @@ private fun MainScreen() {
                     val combined = LinkedHashMap<Int, Offer>()
                     parseOfferArray(publicResponse.optJSONArray("offers") ?: JSONArray()).forEach { combined[it.id] = it }
                     if (token.isNotBlank()) {
-                        val mineResponse = runCatching { ChemLinkOffersApi.myOffers(token) }.getOrNull()
-                        parseOfferArray(mineResponse?.optJSONArray("offers") ?: JSONArray()).forEach { combined[it.id] = it }
+                        val mineResponse = ChemLinkOffersApi.myOffers(token)
+                        val mine = parseOfferArray(mineResponse.optJSONArray("offers") ?: JSONArray())
+                        mine.forEach { combined[it.id] = it }
+                        val mineIds = mine.map { it.id }.toSet()
+                        val legacyLocal = offers.filter { it.id > 0 && (it.owner == phone || (it.owner.isBlank() && it.phone == phone)) && it.id !in mineIds }
+                        legacyLocal.forEach { local ->
+                            try {
+                                val payload = JSONObject().put("kind", "sell").put("name", local.name)
+                                    .put("official", local.official).put("market", local.market)
+                                    .put("quantity", local.quantity.ifBlank { local.time.ifBlank { "ثبت نشده" } })
+                                    .put("place", local.place).put("time", local.time).put("supplier", local.supplier)
+                                    .put("phone", local.phone.ifBlank { phone }).put("description", local.description)
+                                    .put("photo", if (local.photo.startsWith("https://", true)) local.photo else "")
+                                    .put("reason", local.reason)
+                                val response = ChemLinkOffersApi.createOrUpdate(token, payload)
+                                response.optJSONObject("offer")?.let { migrated -> parseOfferArray(JSONArray().put(migrated)).firstOrNull()?.let { combined[it.id] = it } }
+                            } catch (migrationError: Exception) {
+                                if (combined[local.id] == null) combined[local.id] = local
+                            }
+                        }
+                    } else {
+                        offers.filter { combined[it.id] == null }.forEach { combined[it.id] = it }
                     }
                     combined.values.toList().sortedByDescending { it.id }
                 }
