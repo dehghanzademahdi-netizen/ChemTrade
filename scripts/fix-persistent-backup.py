@@ -142,7 +142,7 @@ elif 'PersistentBackup.restore(this, getSharedPreferences("chemlink", Context.MO
     marker = "super.onCreate(savedInstanceState)"
     if marker not in t:
         raise SystemExit("EntryActivity onCreate marker not found")
-    t = t.replace(marker, marker + '\\n        PersistentBackup.restore(this, getSharedPreferences("chemlink", Context.MODE_PRIVATE))', 1)
+    t = t.replace(marker, marker + '\n        PersistentBackup.restore(this, getSharedPreferences("chemlink", Context.MODE_PRIVATE))', 1)
 needle2 = 'prefs.edit().putString("users", users.toString()).apply()'
 replacement2 = 'prefs.edit().putString("users", users.toString()).commit()\n    PersistentBackup.backup(context, prefs)'
 if needle2 in t:
