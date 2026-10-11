@@ -9,7 +9,7 @@ if 'CloudStore.saveUser' not in s and 'ChemLinkAuthApi' in s:
     marker = 'saveRegisteredUser(context, savedUser)'
     if marker not in s:
         raise SystemExit('EntryActivity shared-auth save marker not found')
-    s = s.replace(marker, marker + '\\n        scope.launch(kotlinx.coroutines.Dispatchers.IO) { CloudStore.saveUser(context.getSharedPreferences("chemlink", Context.MODE_PRIVATE), savedUser.toJson()) }', 1)
+    s = s.replace(marker, marker + '\n        scope.launch(kotlinx.coroutines.Dispatchers.IO) { CloudStore.saveUser(context.getSharedPreferences("chemlink", Context.MODE_PRIVATE), savedUser.toJson()) }', 1)
 elif 'CloudStore.saveUser' not in s:
     marker = 'saveRegisteredUser(context, EntryUser(phone, accountType, profileName.trim(), company.trim(), address.trim(), city.trim(), landline))'
     if marker not in s:
