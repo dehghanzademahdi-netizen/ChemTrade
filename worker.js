@@ -3,6 +3,7 @@ import { onRequestPost as verifyOtp } from "./functions/api/auth/verify-otp.js";
 import { onRequestGet as me } from "./functions/api/auth/me.js";
 import { onRequestGet as getProfile, onRequestPost as saveProfile } from "./functions/api/auth/profile.js";
 import { onRequestGet as getOffers, onRequestPost as createOffer } from "./functions/api/offers.js";
+import { onRequestGet as adminBackup } from "./functions/api/admin/backup.js";
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -23,6 +24,7 @@ export default {
     if (url.pathname === "/api/auth/profile" && request.method === "POST") return saveProfile({request,env,ctx});
     if (url.pathname === "/api/offers" && request.method === "GET") return getOffers({request,env,ctx});
     if (url.pathname === "/api/offers" && request.method === "POST") return createOffer({request,env,ctx});
+    if (url.pathname === "/api/admin/backup" && request.method === "GET") return adminBackup({request,env,ctx});
     return env.ASSETS.fetch(request);
   }
 };
