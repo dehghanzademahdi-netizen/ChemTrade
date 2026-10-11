@@ -1,5 +1,43 @@
 function json(data,status=200){return new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});}
 async function sha256(value){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(String(value)));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("");}
+const FIREBASE_ROOT="https://chemlink-8909b-default-rtdb.firebaseio.com";
+async function firebase(path,method="GET",body=null){
+  const response=await fetch(FIREBASE_ROOT+"/"+path+".json",{method,headers:{"content-type":"application/json"},body:body===null?undefined:JSON.stringify(body)});
+  if(!response.ok)throw new Error("Firebase mirror failed");
+  return response.json();
+}
+async function mirrorProfile(p){
+  if(!p)return;
+  const item={phone:p.phone,type:p.role==="supplier"?"Supplier":"Consumer",role:p.role,name:p.full_name,fullName:p.full_name,company:p.company_name,companyName:p.company_name,city:p.city,businessType:p.business_type,neededMaterials:p.needed_materials||"",address:p.address||"",landline:p.landline||"",updatedAt:p.updated_at,createdAt:p.created_at};
+  const key=encodeURIComponent(String(p.phone).replace(/\D/g,""));
+  const old=await firebase("chemlink/usersByPhone/"+key).catch(()=>null);
+  const merged={...(old&&typeof old==="object"?old:{}),...item};
+  await firebase("chemlink/usersByPhone/"+key,"PUT",merged);
+  const users=await firebase("chemlink/users").catch(()=>[]);
+  const arr=Array.isArray(users)?users:[];
+  const index=arr.findIndex(x=>x&&String(x.phone||"").replace(/\D/g,"")===key);
+  if(index>=0)arr[index]={...arr[index],...merged};else arr.push(merged);
+  await firebase("chemlink/users","PUT",arr);
+}
+async function importFirebaseProfile(db,phone){
+  const key=encodeURIComponent(String(phone).replace(/\D/g,""));
+  let old=await firebase("chemlink/usersByPhone/"+key).catch(()=>null);
+  if(!old||typeof old!=="object"){
+    const users=await firebase("chemlink/users").catch(()=>[]);
+    old=(Array.isArray(users)?users:[]).find(x=>x&&String(x.phone||"").replace(/\D/g,"")===key)||null;
+  }
+  if(!old)return null;
+  const fullName=String(old.fullName||old.name||"").trim();
+  const companyName=String(old.companyName||old.company||"").trim();
+  const role=(old.role==="supplier"||String(old.type||"").toLowerCase().includes("supplier"))?"supplier":"buyer";
+  const city=String(old.city||"").trim();
+  const businessType=String(old.businessType||old.business_type||"فعالیت بازرگانی").trim();
+  if(fullName.length<2||companyName.length<2||city.length<2)return null;
+  const now=Date.now();
+  await db.prepare("INSERT INTO user_profiles(phone,full_name,company_name,role,city,business_type,needed_materials,address,landline,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(phone) DO UPDATE SET full_name=excluded.full_name,company_name=excluded.company_name,role=excluded.role,city=excluded.city,business_type=excluded.business_type,needed_materials=excluded.needed_materials,address=excluded.address,landline=excluded.landline,updated_at=excluded.updated_at")
+   .bind(phone,fullName,companyName,role,city,businessType,String(old.neededMaterials||old.needed_materials||""),String(old.address||""),String(old.landline||""),Number(old.createdAt||now),now).run();
+  return db.prepare("SELECT phone,full_name,company_name,role,city,business_type,needed_materials,address,landline,created_at,updated_at FROM user_profiles WHERE phone=?").bind(phone).first();
+}
 function complete(p){return Boolean(p&&p.full_name&&p.company_name&&["buyer","supplier"].includes(p.role)&&p.city&&p.business_type);}
 async function ensureProfileSchema(db){
   await db.prepare("CREATE TABLE IF NOT EXISTS user_profiles(phone TEXT PRIMARY KEY,full_name TEXT NOT NULL,company_name TEXT NOT NULL,role TEXT NOT NULL,city TEXT NOT NULL,business_type TEXT NOT NULL,needed_materials TEXT NOT NULL DEFAULT '',address TEXT NOT NULL DEFAULT '',landline TEXT NOT NULL DEFAULT '',created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL)").run();
@@ -24,7 +62,9 @@ export async function onRequestGet({request,env}){
     if(!session)return json({ok:false,error:"نشست ورود معتبر نیست. دوباره وارد شوید."},401);
     if(session.purpose!=="user")return json({ok:false,error:"این نشست برای حساب کاربری نیست."},403);
     await ensureProfileSchema(session.db);
-    const p=await session.db.prepare("SELECT phone,full_name,company_name,role,city,business_type,needed_materials,address,landline,created_at,updated_at FROM user_profiles WHERE phone=?").bind(session.phone).first();
+    let p=await session.db.prepare("SELECT phone,full_name,company_name,role,city,business_type,needed_materials,address,landline,created_at,updated_at FROM user_profiles WHERE phone=?").bind(session.phone).first();
+    if(!complete(p))p=await importFirebaseProfile(session.db,session.phone)||p;
+    if(complete(p))await mirrorProfile(p).catch(e=>console.error("Firebase profile mirror",e));
     return json({ok:true,registered:complete(p),profile:publicProfile(p)});
   }catch(e){console.error(e);return json({ok:false,error:"دریافت اطلاعات حساب انجام نشد."},500);}
 }
@@ -49,6 +89,7 @@ export async function onRequestPost({request,env}){
     await db.prepare("INSERT INTO user_profiles(phone,full_name,company_name,role,city,business_type,needed_materials,address,landline,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(phone) DO UPDATE SET full_name=excluded.full_name,company_name=excluded.company_name,role=excluded.role,city=excluded.city,business_type=excluded.business_type,needed_materials=excluded.needed_materials,address=excluded.address,landline=excluded.landline,updated_at=excluded.updated_at")
       .bind(session.phone,fullName,companyName,role,city,businessType,neededMaterials,address,landline,now,now).run();
     const p=await db.prepare("SELECT phone,full_name,company_name,role,city,business_type,needed_materials,address,landline,created_at,updated_at FROM user_profiles WHERE phone=?").bind(session.phone).first();
+    await mirrorProfile(p).catch(e=>console.error("Firebase profile mirror",e));
     return json({ok:true,registered:true,profile:publicProfile(p)});
   }catch(e){console.error(e);return json({ok:false,error:"ذخیره اطلاعات ثبت‌نام انجام نشد."},500);}
 }
