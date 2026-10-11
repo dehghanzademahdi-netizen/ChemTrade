@@ -20,8 +20,32 @@
 <script>
 const $=id=>document.getElementById(id);let token='';
 async function api(path,opts={}){const headers={'Content-Type':'application/json',...(opts.headers||{})};if(token)headers.Authorization='Bearer '+token;const r=await fetch(path,{...opts,headers,cache:'no-store'});const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw new Error(d.error||'درخواست ناموفق بود.');return d}
+async function downloadBackup(){
+ const b=$('download');b.disabled=true;$('status').textContent='در حال خواندن و بررسی اطلاعات ابری و پایگاه داده...';
+ try{
+  const data=await api('/api/admin/backup');
+  const text=JSON.stringify(data,null,2);
+  // Validate the payload before offering a local file.
+  const checked=JSON.parse(text);
+  if(!checked.ok||!checked.product||!checked.createdAt)throw new Error('پشتیبان برگشتی کامل و معتبر نیست؛ فایلی ذخیره نشد.');
+  const blob=new Blob(['\\uFEFF',text],{type:'application/json;charset=utf-8'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  const stamp=new Date().toISOString().replace(/[:.]/g,'-');
+  a.href=url;a.download='ChemLink-backup-'+stamp+'.json';a.style.display='none';
+  document.body.appendChild(a);a.click();a.remove();
+  // Do not revoke immediately; some browsers otherwise create a broken/empty download.
+  setTimeout(()=>URL.revokeObjectURL(url),60000);
+  $('status').textContent='درخواست دانلود انجام شد. در پوشه Downloads دنبال فایل ChemLink-backup با پسوند .json بگردید. برای بازکردن، روی فایل راست‌کلیک کنید و Open with > Notepad را بزنید. این فایل داده است، نه برنامه.';
+ }catch(e){$('status').textContent='پشتیبان ساخته نشد: '+(e.message||'خطای نامشخص')+'\\nهیچ فایل معتبری در این تلاش دانلود نشده است.'}
+ finally{b.disabled=false}
+}
 $('send').onclick=async()=>{const b=$('send');b.disabled=true;$('status').textContent='در حال ارسال کد...';try{await api('/api/auth/send-otp',{method:'POST',body:JSON.stringify({phone:'09357236476',purpose:'admin'})});$('verifyArea').hidden=false;$('status').textContent='کد ارسال شد. کد پیامک‌شده را وارد کنید.';$('code').focus()}catch(e){$('status').textContent=e.message}finally{b.disabled=false}};
-$('verify').onclick=async()=>{const b=$('verify');b.disabled=true;try{const d=await api('/api/auth/verify-otp',{method:'POST',body:JSON.stringify({phone:'09357236476',code:$('code').value.replace(/\D/g,''),purpose:'admin'})});token=d.token;$('verifyArea').hidden=true;$('backupArea').hidden=false;$('send').hidden=true;$('status').textContent='ورود مدیریت تأیید شد. حالا فایل پشتیبان را بسازید.'}catch(e){$('status').textContent=e.message}finally{b.disabled=false}};
-$('download').onclick=async()=>{const b=$('download');b.disabled=true;$('status').textContent='در حال خواندن داده‌های ابری و پایگاه داده...';try{const data=await api('/api/admin/backup');const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='ChemLink-backup-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);$('status').textContent='فایل پشتیبان آماده و دانلود شد. وجود فایل را در پوشه Downloads بررسی کنید.'}catch(e){$('status').textContent=e.message}finally{b.disabled=false}};
+$('verify').onclick=async()=>{const b=$('verify');b.disabled=true;try{const d=await api('/api/auth/verify-otp',{method:'POST',body:JSON.stringify({phone:'09357236476',code:$('code').value.replace(/\\D/g,''),purpose:'admin'})});token=d.token;$('verifyArea').hidden=true;$('backupArea').hidden=false;$('send').hidden=true;
+ $('status').textContent='ورود مدیریت تأیید شد.';
+ // Ask immediately after admin login; cancel leaves the manual backup button available.
+ if(window.confirm('ورود مدیریت انجام شد. همین حالا نسخه پشتیبان ChemLink روی این کامپیوتر ذخیره شود؟')) await downloadBackup();
+ else $('status').textContent='فعلاً پشتیبان ذخیره نشد. هر وقت خواستید روی «ساخت و دانلود فایل پشتیبان» بزنید.';
+}catch(e){$('status').textContent=e.message}finally{b.disabled=false}};
+$('download').onclick=downloadBackup;
 $('logout').onclick=()=>{token='';$('backupArea').hidden=true;$('send').hidden=false;$('verifyArea').hidden=true;$('code').value='';$('status').textContent='از حساب مدیریت خارج شدید.'};
 </script></body></html>
