@@ -6,6 +6,12 @@ entry = ROOT / "java/com/dehghanzadeh/chemtrade/EntryActivity.kt"
 main = ROOT / "java/com/dehghanzadeh/chemtrade/MainActivity.kt"
 manifest = ROOT / "AndroidManifest.xml"
 
+# The shared production flow uses SMS.ir on the server for both customer and admin OTP.
+# Do not rewrite it into a local SMS composer.
+if "ChemLinkAuthApi" in entry.read_text(encoding="utf-8") and "ChemLinkAuthApi" in main.read_text(encoding="utf-8"):
+    print("SHARED SERVER OTP FLOW PRESERVED")
+    raise SystemExit(0)
+
 # Both customer and admin OTP use the phone's own SMS composer: no SEND_SMS runtime permission.
 e = entry.read_text(encoding="utf-8")
 for imp in [
