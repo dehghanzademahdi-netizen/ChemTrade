@@ -17,7 +17,12 @@ async function readOffers(){
 }
 async function writeOffers(offers){
  const r=await fetch(FIREBASE_ROOT+"/chemlink/offers.json",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(offers)});
- if(!r.ok)throw new Error("cloud write failed");
+ if(!r.ok)throw new Error("فضای ابری ذخیره تغییرات را نپذیرفت (HTTP "+r.status+").");
+ const verify=await fetch(FIREBASE_ROOT+"/chemlink/offers.json?verify="+Date.now(),{cache:"no-store"});
+ if(!verify.ok)throw new Error("تغییر ذخیره شد اما بررسی نهایی فضای ابری ناموفق بود.");
+ const data=await verify.json(),saved=Array.isArray(data)?data:(data&&typeof data==="object"?Object.values(data):[]);
+ if(saved.length!==offers.length)throw new Error("تعداد آگهی‌های ذخیره‌شده با فهرست مدیریت تطابق ندارد.");
+ for(const expected of offers){const actual=saved.find(x=>x&&String(x.id)===String(expected.id));if(!actual||String(actual.status||"").toUpperCase()!==String(expected.status||"").toUpperCase())throw new Error("وضعیت نهایی آگهی در فضای ابری تأیید نشد.");}
 }
 function money(value){
  const n=Number(value);
@@ -45,12 +50,12 @@ export async function onRequestPost({request,env}){
   const body=await request.json().catch(()=>({}));
   const offers=await readOffers();
   if(body.action==="CREATE"){
-   const name=String(body.name||"").trim().slice(0,180),place=String(body.place||"").trim().slice(0,120),quantity=String(body.quantity||"").trim().slice(0,100);
+   const name=String(body.name||"").trim().slice(0,180),category=String(body.category||"سایر مواد").trim().slice(0,100),place=String(body.place||"").trim().slice(0,120),quantity=String(body.quantity||"").trim().slice(0,100);
    if(name.length<2||place.length<2||quantity.length<1)return json({ok:false,error:"نام ماده، مقدار و محل تحویل را کامل کنید."},400);
    const photo=String(body.photo||"").trim().slice(0,1500);
    if(photo&&!/^https:\/\//i.test(photo))return json({ok:false,error:"لینک عکس باید با https شروع شود."},400);
    const now=Date.now(),id=offers.reduce((max,o)=>Math.max(max,Number(o?.id)||0),0)+1;
-   const offer={id,kind:body.kind==="buy"?"buy":"sell",name,official:String(body.official||"").trim().slice(0,100),market:String(body.market||"").trim().slice(0,100),quantity,time:String(body.time||quantity).trim().slice(0,120),place,supplier:String(body.supplier||"").trim().slice(0,160),phone:String(body.phone||s.phone).trim().slice(0,30),owner:s.phone,description:String(body.description||"").trim().slice(0,2000),photo,status:"PENDING",reason:"",marginType:"PERCENT",margin:0,publishedOfficial:"",publishedMarket:"",createdAt:now,updatedAt:now};
+   const offer={id,kind:body.kind==="buy"?"buy":"sell",name,category,official:String(body.official||"").trim().slice(0,100),market:String(body.market||"").trim().slice(0,100),quantity,time:String(body.time||quantity).trim().slice(0,120),place,supplier:String(body.supplier||"").trim().slice(0,160),phone:String(body.phone||s.phone).trim().slice(0,30),owner:s.phone,description:String(body.description||"").trim().slice(0,2000),photo,status:"PENDING",reason:"",marginType:"PERCENT",margin:0,publishedOfficial:"",publishedMarket:"",createdAt:now,updatedAt:now};
    offers.push(offer);await writeOffers(offers);return json({ok:true,offer},201);
   }
   const id=String(body.id??"");const status=String(body.status||"").toUpperCase();
