@@ -61,16 +61,24 @@ jobs:
               const otp = await otpResponse.json().catch(() => ({}));
               console.log('OTP route diagnostic', otpResponse.status, JSON.stringify(otp));
 
+              const offersResponse = await fetch(base + '/api/offers?verify=' + Date.now(), {
+                cache: 'no-store',
+                headers: { 'cache-control': 'no-cache' }
+              });
+              const offers = await offersResponse.json().catch(() => ({}));
+              console.log('Cloud marketplace diagnostic', offersResponse.status, JSON.stringify({ok: offers.ok, count: Array.isArray(offers.offers) ? offers.offers.length : -1}));
+
               const good = healthResponse.ok &&
                 health.worker === 'chemlink' &&
                 health.build === 'cloud-offers-v1' &&
                 health.dbBinding === true &&
                 otpResponse.status === 400 &&
-                String(otp.error || '').includes('شماره موبایل معتبر نیست');
+                String(otp.error || '').includes('شماره موبایل معتبر نیست') &&
+                offersResponse.ok && offers.ok === true && Array.isArray(offers.offers);
               if (good) {
                 consecutiveGood++;
                 if (consecutiveGood >= 3) {
-                  console.log('Production health and OTP route both confirm the D1 binding.');
+                  console.log('Production health, OTP route, and shared cloud marketplace are verified.');
                   process.exit(0);
                 }
               } else {
