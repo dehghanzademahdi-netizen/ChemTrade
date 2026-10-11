@@ -19,23 +19,38 @@ async function mirrorProfile(p){
   if(index>=0)arr[index]={...arr[index],...merged};else arr.push(merged);
   await firebase("chemlink/users","PUT",arr);
 }
+function digits(value){return String(value||"").replace(/[^0-9]/g,"");}
+function canonicalPhone(value){
+ let p=digits(value);
+ if(p.startsWith("0098"))p=p.slice(2);
+ if(p.startsWith("98")&&p.length===12)p="0"+p.slice(2);
+ if(p.length===10&&p.startsWith("9"))p="0"+p;
+ return p;
+}
 async function importFirebaseProfile(db,phone){
-  const key=encodeURIComponent(String(phone).replace(/\D/g,""));
-  let old=await firebase("chemlink/usersByPhone/"+key).catch(()=>null);
-  if(!old||typeof old!=="object"){
+  const target=canonicalPhone(phone);
+  const keys=[target,target.replace(/^0/,"98"),target.replace(/^0/,""),"98"+target.replace(/^0/,"")];
+  let old=null;
+  for(const key of [...new Set(keys)]){
+    const value=await firebase("chemlink/usersByPhone/"+encodeURIComponent(key)).catch(()=>null);
+    if(value&&typeof value==="object"&&canonicalPhone(value.phone||key)===target){old=value;break;}
+  }
+  if(!old){
     const users=await firebase("chemlink/users").catch(()=>[]);
-    old=(Array.isArray(users)?users:[]).find(x=>x&&String(x.phone||"").replace(/\D/g,"")===key)||null;
+    const arr=Array.isArray(users)?users:(users&&typeof users==="object"?Object.values(users):[]);
+    old=arr.find(x=>x&&canonicalPhone(x.phone||x.mobile||x.phoneNumber)===target)||null;
   }
   if(!old)return null;
-  const fullName=String(old.fullName||old.name||"").trim();
-  const companyName=String(old.companyName||old.company||"").trim();
-  const role=(old.role==="supplier"||String(old.type||"").toLowerCase().includes("supplier"))?"supplier":"buyer";
-  const city=String(old.city||"").trim();
-  const businessType=String(old.businessType||old.business_type||"فعالیت بازرگانی").trim();
+  const fullName=String(old.fullName||old.full_name||old.name||old.fullname||"").trim();
+  const companyName=String(old.companyName||old.company_name||old.company||old.organization||old.businessName||"").trim();
+  const rawRole=String(old.role||old.type||old.accountType||old.userType||"").toLowerCase();
+  const role=(rawRole.includes("supplier")||rawRole.includes("تامین")||rawRole.includes("تأمین")||rawRole.includes("فروش")||rawRole.includes("seller"))?"supplier":"buyer";
+  const city=String(old.city||old.location||old.province||old.shahr||"").trim();
+  const businessType=String(old.businessType||old.business_type||old.activity||old.field||"فعالیت بازرگانی").trim();
   if(fullName.length<2||companyName.length<2||city.length<2)return null;
   const now=Date.now();
   await db.prepare("INSERT INTO user_profiles(phone,full_name,company_name,role,city,business_type,needed_materials,address,landline,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(phone) DO UPDATE SET full_name=excluded.full_name,company_name=excluded.company_name,role=excluded.role,city=excluded.city,business_type=excluded.business_type,needed_materials=excluded.needed_materials,address=excluded.address,landline=excluded.landline,updated_at=excluded.updated_at")
-   .bind(phone,fullName,companyName,role,city,businessType,String(old.neededMaterials||old.needed_materials||""),String(old.address||""),String(old.landline||""),Number(old.createdAt||now),now).run();
+   .bind(phone,fullName,companyName,role,city,businessType,String(old.neededMaterials||old.needed_materials||old.materials||""),String(old.address||""),String(old.landline||old.telephone||""),Number(old.createdAt||old.created_at||now),now).run();
   return db.prepare("SELECT phone,full_name,company_name,role,city,business_type,needed_materials,address,landline,created_at,updated_at FROM user_profiles WHERE phone=?").bind(phone).first();
 }
 function complete(p){return Boolean(p&&p.full_name&&p.company_name&&["buyer","supplier"].includes(p.role)&&p.city&&p.business_type);}
