@@ -148,11 +148,35 @@ private fun EntryUser.toJson() = JSONObject().apply {
                 if (response.optBoolean("registered") && profile != null) finishLogin(profile)
                 else {
                     val legacy = loadRegisteredUser(context, phone)
+                    // Migrate complete legacy phone-local profiles to the cloud automatically,
+                    // so the website can reuse them without asking the user to type everything again.
+                    if (profile == null && legacy != null &&
+                        legacy.name.trim().length >= 2 &&
+                        legacy.company.trim().length >= 2 &&
+                        legacy.city.trim().length >= 2
+                    ) {
+                        val legacyRole = if (legacy.type == "Supplier") "supplier" else "buyer"
+                        val migrationPayload = JSONObject()
+                            .put("fullName", legacy.name.trim())
+                            .put("companyName", legacy.company.trim())
+                            .put("role", legacyRole)
+                            .put("city", legacy.city.trim())
+                            .put("businessType", "فعالیت بازرگانی")
+                            .put("address", legacy.address)
+                            .put("landline", legacy.landline)
+                            .put("neededMaterials", "")
+                        val migrated = ChemLinkAuthApi.saveProfile(token, migrationPayload)
+                        val migratedProfile = migrated.optJSONObject("profile")
+                        if (migrated.optBoolean("registered") && migratedProfile != null) {
+                            finishLogin(migratedProfile)
+                            return@launch
+                        }
+                    }
                     fullName = profile?.optString("fullName").orEmpty().ifBlank { legacy?.name.orEmpty() }
                     companyName = profile?.optString("companyName").orEmpty().ifBlank { legacy?.company.orEmpty() }
                     city = profile?.optString("city").orEmpty().ifBlank { legacy?.city.orEmpty() }
                     role = profile?.optString("role").orEmpty().ifBlank { if (legacy?.type == "Supplier") "supplier" else "buyer" }
-                    businessType = profile?.optString("businessType").orEmpty()
+                    businessType = profile?.optString("businessType").orEmpty().ifBlank { if (legacy != null) "فعالیت بازرگانی" else "" }
                     neededMaterials = profile?.optString("neededMaterials").orEmpty()
                     address = profile?.optString("address").orEmpty().ifBlank { legacy?.address.orEmpty() }
                     landline = profile?.optString("landline").orEmpty().ifBlank { legacy?.landline.orEmpty() }
