@@ -138,7 +138,7 @@ private fun MainScreen() {
                         val mine = parseOfferArray(mineResponse.optJSONArray("offers") ?: JSONArray())
                         mine.forEach { combined[it.id] = it }
                         val mineIds = mine.map { it.id }.toSet()
-                        val legacyLocal = offers.filter { it.id > 0 && (it.owner == phone || (it.owner.isBlank() && it.phone == phone)) && it.id !in mineIds }
+                        val legacyLocal = offers.filter { it.id != 0 && (it.owner == phone || (it.owner.isBlank() && it.phone == phone)) && it.id !in mineIds }
                         legacyLocal.forEach { local ->
                             try {
                                 val payload = JSONObject().put("kind", "sell").put("name", local.name)
