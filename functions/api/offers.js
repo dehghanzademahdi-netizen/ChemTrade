@@ -16,7 +16,7 @@ async function readOffers(){
  const data=await r.json();
  return Array.isArray(data)?data:(data&&typeof data==="object"?Object.values(data):[]);
 }
-function publicOffer(o){const k=String(o.kind||o.type||"").toLowerCase();return {id:o.id,kind:(["buy","request"].includes(k)||String(o.description||"").includes("نوع آگهی: درخواست خرید"))?"buy":"sell",official:o.publishedOfficial||o.official||"",market:o.publishedMarket||o.market||"",publishedOfficial:o.publishedOfficial||"",publishedMarket:o.publishedMarket||"",name:o.name||"",quantity:o.quantity||o.amount||"",deliveryTime:o.time||"",place:o.place||"",supplier:o.supplier||"",phone:o.phone||"",description:o.description||"",photo:o.photo||"",status:String(o.status||"PENDING").toUpperCase(),reason:o.reason||"",createdAt:o.createdAt||o.created_at||0,updatedAt:o.updatedAt||o.updated_at||0};}
+function publicOffer(o){const k=String(o.kind||o.type||"").toLowerCase();return {id:o.id,category:o.category||"سایر مواد",kind:(["buy","request"].includes(k)||String(o.description||"").includes("نوع آگهی: درخواست خرید"))?"buy":"sell",official:o.publishedOfficial||o.official||"",market:o.publishedMarket||o.market||"",publishedOfficial:o.publishedOfficial||"",publishedMarket:o.publishedMarket||"",name:o.name||"",quantity:o.quantity||o.amount||"",deliveryTime:o.time||"",place:o.place||"",supplier:o.supplier||"",phone:o.phone||"",description:o.description||"",photo:o.photo||"",status:String(o.status||"PENDING").toUpperCase(),reason:o.reason||"",createdAt:o.createdAt||o.created_at||0,updatedAt:o.updatedAt||o.updated_at||0};}
 function privateOffer(o){return {...publicOffer(o),official:o.official||"",market:o.market||"",publishedOfficial:o.publishedOfficial||"",publishedMarket:o.publishedMarket||"",owner:o.owner||o.phone||"",marginType:o.marginType||"PERCENT",margin:Number(o.margin)||0};}
 export async function onRequestGet({request,env}){
  try{
@@ -36,7 +36,7 @@ export async function onRequestPost({request,env}){
   if(!s||s.purpose!=="user")return json({ok:false,error:"برای ثبت آگهی ابتدا وارد حساب شوید."},401);
   const body=await request.json().catch(()=>({}));
   const kind=["sell","buy"].includes(body.kind)?body.kind:"sell";
-  const name=String(body.name||"").trim().slice(0,180),official=String(body.official||"").trim().slice(0,100),market=String(body.market||"").trim().slice(0,100);
+  const name=String(body.name||"").trim().slice(0,180),category=String(body.category||"سایر مواد").trim().slice(0,100),official=String(body.official||"").trim().slice(0,100),market=String(body.market||"").trim().slice(0,100);
   const quantity=String(body.quantity||"").trim().slice(0,100),place=String(body.place||"").trim().slice(0,120),time=String(body.time||"").trim().slice(0,120);
   const supplier=String(body.supplier||"").trim().slice(0,160),phone=String(body.phone||s.phone).trim().slice(0,30);
   const description=String(body.description||"").trim().slice(0,2000),photo=String(body.photo||"").trim().slice(0,1500);
@@ -50,14 +50,14 @@ export async function onRequestPost({request,env}){
    existingIndex=offers.findIndex(o=>o&&String(o.id)===requestedId&&phoneDigits(o.owner||o.phone)===phoneDigits(s.phone));
    if(existingIndex<0)return json({ok:false,error:"این آگهی برای حساب شما پیدا نشد؛ فهرست را تازه‌سازی کنید."},404);
    const old=offers[existingIndex];
-   const updated={...old,kind,name,official,market,quantity,time:time||quantity,place,supplier,phone,owner:s.phone,description:(kind==="buy"?"نوع آگهی: درخواست خرید\n":"نوع آگهی: عرضه برای فروش\n")+description,photo,status:"PENDING",reason,marginType:old.marginType||"PERCENT",margin:Number(old.margin)||0,publishedOfficial:"",publishedMarket:"",updatedAt:now};
+   const updated={...old,kind,name,category,official,market,quantity,time:time||quantity,place,supplier,phone,owner:s.phone,description:(kind==="buy"?"نوع آگهی: درخواست خرید\n":"نوع آگهی: عرضه برای فروش\n")+description,photo,status:"PENDING",reason,marginType:old.marginType||"PERCENT",margin:Number(old.margin)||0,publishedOfficial:"",publishedMarket:"",updatedAt:now};
    offers[existingIndex]=updated;
    const saved=await fetch(FIREBASE_ROOT+"/chemlink/offers.json",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(offers)});
    if(!saved.ok)return json({ok:false,error:"ذخیره تغییرات آگهی در فضای ابری انجام نشد."},503);
    return json({ok:true,offer:privateOffer(updated)});
   }
   const maxId=offers.reduce((max,o)=>Math.max(max,Number(o?.id)||0),0);
-  const offer={id:maxId+1,kind,name,official,market,quantity,time:time||quantity,place,supplier,phone,owner:s.phone,description:(kind==="buy"?"نوع آگهی: درخواست خرید\n":"نوع آگهی: عرضه برای فروش\n")+description,photo,status:"PENDING",reason,marginType:"PERCENT",margin:0,publishedOfficial:"",publishedMarket:"",createdAt:now,updatedAt:now};
+  const offer={id:maxId+1,kind,name,category,official,market,quantity,time:time||quantity,place,supplier,phone,owner:s.phone,description:(kind==="buy"?"نوع آگهی: درخواست خرید\n":"نوع آگهی: عرضه برای فروش\n")+description,photo,status:"PENDING",reason,marginType:"PERCENT",margin:0,publishedOfficial:"",publishedMarket:"",createdAt:now,updatedAt:now};
   offers.push(offer);
   const saved=await fetch(FIREBASE_ROOT+"/chemlink/offers.json",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(offers)});
   if(!saved.ok)return json({ok:false,error:"ذخیره آگهی در فضای ابری انجام نشد."},503);
