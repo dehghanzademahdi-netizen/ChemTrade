@@ -4,6 +4,7 @@ import { onRequestGet as me } from "./functions/api/auth/me.js";
 import { onRequestGet as getProfile, onRequestPost as saveProfile } from "./functions/api/auth/profile.js";
 import { onRequestGet as getOffers, onRequestPost as createOffer } from "./functions/api/offers.js";
 import { onRequestGet as adminBackup } from "./functions/api/admin/backup.js";
+import { onRequestGet as adminGetOffers, onRequestPost as adminUpdateOffer } from "./functions/api/admin/offers.js";
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -25,6 +26,8 @@ export default {
     if (url.pathname === "/api/offers" && request.method === "GET") return getOffers({request,env,ctx});
     if (url.pathname === "/api/offers" && request.method === "POST") return createOffer({request,env,ctx});
     if (url.pathname === "/api/admin/backup" && request.method === "GET") return adminBackup({request,env,ctx});
+    if (url.pathname === "/api/admin/offers" && request.method === "GET") return adminGetOffers({request,env,ctx});
+    if (url.pathname === "/api/admin/offers" && request.method === "POST") return adminUpdateOffer({request,env,ctx});
     return env.ASSETS.fetch(request);
   }
 };
