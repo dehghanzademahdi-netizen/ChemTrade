@@ -224,7 +224,7 @@ private fun MainScreen() {
                 Image(painterResource(R.drawable.ic_chemtrade_logo), "ChemLink", Modifier.size(34.dp))
                 Column { Text("ChemLink", fontWeight = FontWeight.ExtraBold); Text(if (admin) "پنل مدیریت" else "بازار مواد اولیه", style = MaterialTheme.typography.labelSmall, color = Gold) }
             }
-        }, actions = { if (admin) TextButton(::logout) { Text("خروج") } }) },
+        }, actions = { TextButton({ refreshCloud(true) }) { Text("تازه‌سازی") }; if (admin) TextButton(::logout) { Text("خروج") } }) },
         bottomBar = { if (!admin) NavigationBar {
             NavigationBarItem(page == 0, { page = 0 }, { Text("⌂") }, label = { Text("بازار") })
             NavigationBarItem(page == 1, { page = 1 }, { Text("+") }, label = { Text("ثبت آگهی") })
