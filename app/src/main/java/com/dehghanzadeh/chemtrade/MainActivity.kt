@@ -151,7 +151,8 @@ private fun MainScreen() {
                                 val response = ChemLinkOffersApi.createOrUpdate(token, payload)
                                 response.optJSONObject("offer")?.let { migrated -> parseOfferArray(JSONArray().put(migrated)).firstOrNull()?.let { combined[it.id] = it } }
                             } catch (migrationError: Exception) {
-                                if (combined[local.id] == null) combined[local.id] = local
+                                val localKey = if (combined[local.id] == null) local.id else -kotlin.math.abs(local.id)
+                                combined[localKey] = local.copy(id = localKey)
                             }
                         }
                     } else {
