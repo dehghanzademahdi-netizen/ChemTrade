@@ -3,18 +3,21 @@
   "name": "chemlink",
   "compatibility_date": "2026-10-02",
   "main": "./worker.js",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "chemlink-otp",
+      "database_id": "c97a0b11-c7ab-45b8-8b6e-04687398adf6"
+    }
+  ],
   "assets": {
     "directory": "./web",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": [
-      "/api/*"
-    ]
+    "run_worker_first": ["/api/*"]
   },
   "routes": [
-    {
-      "pattern": "chemlink.shop/*",
-      "zone_name": "chemlink.shop"
-    }
+    { "pattern": "chemlink.shop/*", "zone_name": "chemlink.shop" },
+    { "pattern": "www.chemlink.shop/*", "zone_name": "chemlink.shop" }
   ]
 }
