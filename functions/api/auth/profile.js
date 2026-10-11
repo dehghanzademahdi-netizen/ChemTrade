@@ -36,13 +36,21 @@ async function importFirebaseProfile(db,phone){
     if(value&&typeof value==="object"&&canonicalPhone(value.phone||key)===target){old=value;break;}
   }
   if(!old){
+    // Legacy app versions may have stored usersByPhone under a different key format.
+    const byPhone=await firebase("chemlink/usersByPhone").catch(()=>null);
+    if(byPhone&&typeof byPhone==="object"&&!Array.isArray(byPhone)){
+      old=Object.entries(byPhone).map(([key,value])=>value&&typeof value==="object"?{_legacyKey:key,...value}:null)
+        .find(x=>x&&canonicalPhone(x.phone||x.mobile||x.phoneNumber||x._legacyKey)===target)||null;
+    }
+  }
+  if(!old){
     const users=await firebase("chemlink/users").catch(()=>[]);
     const arr=Array.isArray(users)?users:(users&&typeof users==="object"?Object.values(users):[]);
-    old=arr.find(x=>x&&canonicalPhone(x.phone||x.mobile||x.phoneNumber)===target)||null;
+    old=arr.find(x=>x&&canonicalPhone(x.phone||x.mobile||x.phoneNumber||x.mobileNumber)===target)||null;
   }
   if(!old)return null;
-  const fullName=String(old.fullName||old.full_name||old.name||old.fullname||"").trim();
-  const companyName=String(old.companyName||old.company_name||old.company||old.organization||old.businessName||"").trim();
+  const fullName=String(old.fullName||old.full_name||old.name||old.fullname||old.userName||old.username||"").trim();
+  const companyName=String(old.companyName||old.company_name||old.company||old.organization||old.businessName||old.company_name_fa||old.companyTitle||"").trim();
   const rawRole=String(old.role||old.type||old.accountType||old.userType||"").toLowerCase();
   const role=(rawRole.includes("supplier")||rawRole.includes("تامین")||rawRole.includes("تأمین")||rawRole.includes("فروش")||rawRole.includes("seller"))?"supplier":"buyer";
   const city=String(old.city||old.location||old.province||old.shahr||"").trim();
