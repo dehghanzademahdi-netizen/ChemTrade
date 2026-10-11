@@ -63,7 +63,7 @@ jobs:
 
               const good = healthResponse.ok &&
                 health.worker === 'chemlink' &&
-                health.build === 'otp-profile-flow-3-db-repair' &&
+                health.build === 'cloud-offers-v1' &&
                 health.dbBinding === true &&
                 otpResponse.status === 400 &&
                 String(otp.error || '').includes('شماره موبایل معتبر نیست');
