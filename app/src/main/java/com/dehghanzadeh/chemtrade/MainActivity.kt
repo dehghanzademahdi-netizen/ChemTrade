@@ -37,8 +37,11 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.net.URL
 import org.json.JSONArray
 import org.json.JSONObject
 import java.security.MessageDigest
@@ -360,8 +363,17 @@ private fun openTelegram(context: Context) { runCatching { context.startActivity
 private fun openExternal(context: Context, uri: Uri) { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, uri)) } }
 
 @Composable private fun PhotoView(value: String) {
-    val context = LocalContext.current; val bitmap = remember(value) { runCatching { context.contentResolver.openInputStream(Uri.parse(value)).use { BitmapFactory.decodeStream(it) } }.getOrNull() }
-    if (bitmap != null) Image(bitmap.asImageBitmap(), "عکس محصول", Modifier.fillMaxWidth().height(170.dp), contentScale = ContentScale.Crop)
+    val context = LocalContext.current
+    var bitmap by remember(value) { mutableStateOf<android.graphics.Bitmap?>(null) }
+    LaunchedEffect(value) {
+        bitmap = withContext(Dispatchers.IO) {
+            runCatching {
+                if (value.startsWith("https://", true)) URL(value).openStream().use { BitmapFactory.decodeStream(it) }
+                else context.contentResolver.openInputStream(Uri.parse(value))?.use { BitmapFactory.decodeStream(it) }
+            }.getOrNull()
+        }
+    }
+    if (bitmap != null) Image(bitmap!!.asImageBitmap(), "عکس محصول", Modifier.fillMaxWidth().height(170.dp), contentScale = ContentScale.Crop)
 }
 
 @Composable private fun NewOfferPage(modifier: Modifier, phone: String, onStart: () -> Unit) { Column(modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { Text("ثبت آگهی فروش", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold); Text(if (phone.isBlank()) "برای ثبت آگهی ابتدا وارد حساب شوید." else "آگهی شما ابتدا توسط مدیریت بررسی و سپس منتشر می‌شود."); Button(onStart, Modifier.fillMaxWidth()) { Text(if (phone.isBlank()) "ورود به حساب" else "ثبت آگهی جدید") } } }
