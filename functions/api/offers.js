@@ -34,14 +34,14 @@ export async function onRequestPost({request,env}){
   const body=await request.json().catch(()=>({}));
   const kind=["sell","buy"].includes(body.kind)?body.kind:"sell";
   const name=String(body.name||"").trim().slice(0,180),official=String(body.official||"").trim().slice(0,100),market=String(body.market||"").trim().slice(0,100);
-  const quantity=String(body.quantity||"").trim().slice(0,100),place=String(body.place||"").trim().slice(0,120);
+  const quantity=String(body.quantity||"").trim().slice(0,100),place=String(body.place||"").trim().slice(0,120),time=String(body.time||"").trim().slice(0,120);
   const supplier=String(body.supplier||"").trim().slice(0,160),phone=String(body.phone||s.phone).trim().slice(0,30);
   const description=String(body.description||"").trim().slice(0,2000),photo=String(body.photo||"").trim().slice(0,1500);
   if(name.length<2||place.length<2||quantity.length<1)return json({ok:false,error:"نام ماده، مقدار و شهر را کامل کنید."},400);
   if(photo&&!/^https:\/\//i.test(photo))return json({ok:false,error:"لینک تصویر باید با https شروع شود."},400);
   const offers=await readOffers();
   const maxId=offers.reduce((max,o)=>Math.max(max,Number(o?.id)||0),0),now=Date.now();
-  const offer={id:maxId+1,kind,name,official,market,quantity,time:quantity,place,supplier,phone,owner:s.phone,description:(kind==="buy"?"نوع آگهی: درخواست خرید\\n":"نوع آگهی: عرضه برای فروش\\n")+description,photo,status:"PENDING",reason:"",marginType:"PERCENT",margin:0,publishedOfficial:"",publishedMarket:"",createdAt:now,updatedAt:now};
+  const offer={id:maxId+1,kind,name,official,market,quantity,time:time||quantity,place,supplier,phone,owner:s.phone,description:(kind==="buy"?"نوع آگهی: درخواست خرید\\n":"نوع آگهی: عرضه برای فروش\\n")+description,photo,status:"PENDING",reason:"",marginType:"PERCENT",margin:0,publishedOfficial:"",publishedMarket:"",createdAt:now,updatedAt:now};
   offers.push(offer);
   const saved=await fetch(FIREBASE_ROOT+"/chemlink/offers.json",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(offers)});
   if(!saved.ok)return json({ok:false,error:"ذخیره آگهی در فضای ابری انجام نشد."},503);
