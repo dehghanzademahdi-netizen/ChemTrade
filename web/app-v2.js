@@ -1,4 +1,4 @@
-let listings=[],currentProfile=null;
+let listings=[],currentProfile=null,adminUsers=[],selectedAdminUser=null;
 const $=id=>document.getElementById(id);
 const getSession=()=>localStorage.getItem('chemlinkSession')||'';
 const loggedIn=()=>!!getSession();
@@ -79,8 +79,9 @@ function adminDigits(v){return String(v??'').replace(/[۰-۹]/g,c=>'0123456789'[
 function adminMoney(v){const digits=adminDigits(v).replace(/[^0-9]/g,'');const n=Number(digits);return digits&&Number.isFinite(n)?n:null}
 function adminFinal(base,type,margin){const n=adminMoney(base);if(n===null)return 'قابل محاسبه نیست';const m=Math.max(0,Number(margin)||0);return Math.round(type==='TOMAN'?n+m:n+n*m/100).toLocaleString('fa-IR')+' تومان'}
 function renderAdminPanel(message=''){
+ if(adminTab==='USERS'){renderAdminUsers(message);return}
  const panel=ensureAdminPanel(),items=adminOffers.filter(o=>String(o.status||'PENDING').toUpperCase()===adminTab);
- const tabs=[['PENDING','در انتظار بررسی'],['APPROVED','منتشرشده'],['REJECTED','نیازمند اصلاح']];
+ const tabs=[['PENDING','در انتظار بررسی'],['APPROVED','منتشرشده'],['REJECTED','نیازمند اصلاح'],['USERS','مدیریت کاربران']];
  let html='<div class="container"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div><span class="kicker">CHEMLINK ADMIN</span><h2 style="margin:6px 0">پنل مدیریت آگهی‌ها</h2><p style="margin:0;color:#64748b">بررسی آگهی، اعمال سود روی هر دو قیمت و انتشار در بازار</p></div><button id="adminRefresh" class="ghost">به‌روزرسانی</button></div>';
  if(message)html+='<p style="padding:12px;border-radius:10px;background:#fff7ed;color:#9a3412">'+esc(message)+'</p>';
  html+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin:20px 0">'+tabs.map(t=>'<button class="'+(adminTab===t[0]?'primary':'ghost')+'" data-admin-tab="'+t[0]+'">'+t[1]+' ('+adminOffers.filter(o=>String(o.status||'PENDING').toUpperCase()===t[0]).length+')</button>').join('')+'</div>';
@@ -96,7 +97,7 @@ function renderAdminPanel(message=''){
  if(selectedAdminOffer){const o=selectedAdminOffer,mt=o.marginType==='TOMAN'?'TOMAN':'PERCENT',mg=Number(o.margin)||0;html+='<div id="adminReview" style="margin-top:22px;background:white;border:1px solid #cbd5e1;border-radius:18px;padding:18px;max-width:780px"><h3 style="margin-top:0">بررسی آگهی: '+esc(o.name)+'</h3><p>قیمت رسمی ثبت‌شده: <b>'+esc(o.official||'ثبت نشده')+'</b></p><p>قیمت غیررسمی ثبت‌شده: <b>'+esc(o.market||'ثبت نشده')+'</b></p><label style="display:block;margin:12px 0">نوع سود مدیریت<select id="adminMarginType" style="display:block;width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:10px;margin-top:6px"><option value="PERCENT" '+(mt==='PERCENT'?'selected':'')+'>درصد</option><option value="TOMAN" '+(mt==='TOMAN'?'selected':'')+'>مبلغ ثابت به تومان</option></select></label><label style="display:block;margin:12px 0">میزان سود مدیریت<input id="adminMargin" type="number" min="0" step="any" value="'+mg+'" style="display:block;width:100%;box-sizing:border-box;padding:12px;border:1px solid #cbd5e1;border-radius:10px;margin-top:6px"></label><div style="padding:12px;border-radius:12px;background:#f8fafc;line-height:2"><div>قیمت رسمی پس از سود: <b id="adminFinalOfficial">'+adminFinal(o.official,mt,mg)+'</b></div><div>قیمت غیررسمی پس از سود: <b id="adminFinalMarket">'+adminFinal(o.market,mt,mg)+'</b></div></div><label style="display:block;margin:12px 0">دلیل رد / پیام اصلاحیه (در صورت نیاز)<textarea id="adminReason" rows="3" style="display:block;width:100%;box-sizing:border-box;padding:12px;border:1px solid #cbd5e1;border-radius:10px;margin-top:6px">'+esc(o.reason||'')+'</textarea></label><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="primary" id="adminApprove">اعمال سود و انتشار</button><button class="ghost" id="adminReject">رد و درخواست اصلاح</button><button class="ghost" id="adminCloseReview">بستن</button></div></div>'}
  html+='</div>';panel.innerHTML=html;
  panel.querySelector('#adminRefresh')?.addEventListener('click',loadAdminOffers);
- panel.querySelectorAll('[data-admin-tab]').forEach(b=>b.onclick=()=>{adminTab=b.dataset.adminTab;selectedAdminOffer=null;renderAdminPanel()});
+ panel.querySelectorAll('[data-admin-tab]').forEach(b=>b.onclick=()=>{adminTab=b.dataset.adminTab;selectedAdminOffer=null;selectedAdminUser=null;if(adminTab==='USERS')loadAdminUsers();else renderAdminPanel()});
  panel.querySelectorAll('[data-review-id]').forEach(b=>b.onclick=()=>{selectedAdminOffer=adminOffers.find(o=>String(o.id)===b.dataset.reviewId)||null;renderAdminPanel();$('adminReview')?.scrollIntoView({behavior:'smooth',block:'start'})});
  panel.querySelectorAll('[data-unpublish-id]').forEach(b=>b.onclick=()=>adminDecision(b.dataset.unpublishId,'PENDING'));
  const updatePreview=()=>{if(!selectedAdminOffer)return;const type=$('adminMarginType')?.value||'PERCENT',m=$('adminMargin')?.value||'0';const a=$('adminFinalOfficial'),b=$('adminFinalMarket');if(a)a.textContent=adminFinal(selectedAdminOffer.official,type,m);if(b)b.textContent=adminFinal(selectedAdminOffer.market,type,m)};
@@ -105,6 +106,28 @@ function renderAdminPanel(message=''){
  $('adminApprove')?.addEventListener('click',()=>adminDecision(selectedAdminOffer?.id,'APPROVED'));
  $('adminReject')?.addEventListener('click',()=>adminDecision(selectedAdminOffer?.id,'REJECTED'));
 }
+function renderAdminUsers(message=''){
+ const panel=ensureAdminPanel();panel.hidden=false;setAdminMode(true);
+ let h='<div class="container"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div><span class="kicker">CHEMLINK ADMIN</span><h2>مدیریت کاربران</h2><p style="color:#64748b">فهرست پایدار کاربران؛ اطلاعات در پایگاه داده نگهداری می‌شود.</p></div><div><button class="ghost" id="adminBackOffers">بازگشت به آگهی‌ها</button> <button class="primary" id="adminUsersRefresh">به‌روزرسانی</button></div></div>';
+ if(message)h+='<p style="padding:12px;background:#fff7ed;color:#9a3412;border-radius:10px">'+esc(message)+'</p>';
+ h+='<p><b>تعداد کاربران:</b> '+adminUsers.length+' — کاربران با اطلاعات ناقص هم در فهرست باقی می‌مانند.</p><input id="adminUserSearch" placeholder="جست‌وجوی نام، شرکت، موبایل، شهر یا مواد" style="width:100%;box-sizing:border-box;padding:12px;border:1px solid #cbd5e1;border-radius:10px;margin:8px 0 16px"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px">';
+ if(!adminUsers.length)h+='<div class="empty">کاربری در فهرست نیست.</div>';
+ adminUsers.forEach(u=>{h+='<article data-user-card="'+esc(u.phone)+'" style="background:white;border:1px solid #dbe3ee;border-radius:14px;padding:15px;overflow-wrap:anywhere"><b>'+esc(u.fullName||'نام تکمیل نشده')+'</b> <span class="badge">'+(u.profileComplete?'تکمیل‌شده':'ناقص')+'</span><p><b>موبایل:</b> '+esc(u.phone)+'</p><p><b>شرکت:</b> '+esc(u.companyName||'—')+'</p><p><b>نوع حساب:</b> '+esc(u.role==='supplier'?'تأمین‌کننده':u.role==='buyer'?'خریدار':'تعیین نشده')+'</p><p><b>شهر:</b> '+esc(u.city||'—')+'</p><p><b>زمینه فعالیت:</b> '+esc(u.businessType||'—')+'</p><p><b>مواد:</b> '+esc(u.neededMaterials||'—')+'</p><p><b>آدرس:</b> '+esc(u.address||'—')+'</p><p><b>تلفن ثابت:</b> '+esc(u.landline||'—')+'</p><small>ثبت: '+(u.createdAt?new Date(Number(u.createdAt)).toLocaleDateString('fa-IR'):'ثبت اولیه ناقص')+'</small><p><button class="primary" data-edit-user="'+esc(u.phone)+'">ویرایش اطلاعات</button></p></article>'});
+ h+='</div>';
+ if(selectedAdminUser){const u=selectedAdminUser;h+='<div style="margin-top:20px;padding:18px;border:1px solid #cbd5e1;border-radius:16px;background:white;max-width:720px"><h3>ویرایش کاربر '+esc(u.phone)+'</h3><form id="adminUserForm" style="display:grid;gap:10px"><label>نام و نام خانوادگی<input name="fullName" required value="'+esc(u.fullName||'')+'"></label><label>نام شرکت<input name="companyName" required value="'+esc(u.companyName||'')+'"></label><label>نوع حساب<select name="role"><option value="buyer" '+(u.role==='buyer'?'selected':'')+'>خریدار</option><option value="supplier" '+(u.role==='supplier'?'selected':'')+'>تأمین‌کننده</option></select></label><label>شهر<input name="city" required value="'+esc(u.city||'')+'"></label><label>زمینه فعالیت<input name="businessType" required value="'+esc(u.businessType||'')+'"></label><label>مواد موردنیاز یا قابل‌عرضه<textarea name="neededMaterials" rows="3">'+esc(u.neededMaterials||'')+'</textarea></label><label>آدرس<input name="address" value="'+esc(u.address||'')+'"></label><label>تلفن ثابت<input name="landline" value="'+esc(u.landline||'')+'"></label><div><button class="primary" type="submit">ذخیره اطلاعات کاربر</button> <button class="ghost" type="button" id="adminUserCancel">انصراف</button></div></form></div>'}
+ h+='</div>';panel.innerHTML=h;
+ $('adminBackOffers')?.addEventListener('click',()=>{adminTab='PENDING';selectedAdminUser=null;loadAdminOffers()});
+ $('adminUsersRefresh')?.addEventListener('click',loadAdminUsers);
+ $('adminUserSearch')?.addEventListener('input',()=>{const q=$('adminUserSearch').value.trim().toLowerCase();panel.querySelectorAll('[data-user-card]').forEach(c=>c.hidden=!c.innerText.toLowerCase().includes(q))});
+ panel.querySelectorAll('[data-edit-user]').forEach(b=>b.onclick=()=>{selectedAdminUser=adminUsers.find(u=>u.phone===b.dataset.editUser)||null;renderAdminUsers()});
+ $('adminUserCancel')?.addEventListener('click',()=>{selectedAdminUser=null;renderAdminUsers()});
+ $('adminUserForm')?.addEventListener('submit',async e=>{e.preventDefault();const f=e.currentTarget;if(!f.reportValidity())return;const payload=Object.fromEntries(new FormData(f).entries());payload.phone=selectedAdminUser.phone;const b=f.querySelector('[type=submit]');b.disabled=true;b.textContent='در حال ذخیره...';try{await api('/api/admin/users',{method:'POST',body:JSON.stringify(payload)});selectedAdminUser=null;await loadAdminUsers('اطلاعات کاربر ذخیره شد.')}catch(err){renderAdminUsers('ذخیره اطلاعات انجام نشد: '+(err.message||'خطای نامشخص'))}});
+}
+async function loadAdminUsers(message=''){
+ const p=ensureAdminPanel();p.hidden=false;setAdminMode(true);p.innerHTML='<div class="container"><h2>مدیریت کاربران</h2><p>در حال دریافت فهرست...</p></div>';
+ try{const d=await api('/api/admin/users');adminUsers=d.users||[];renderAdminUsers(message)}catch(e){renderAdminUsers(e.message||'دریافت کاربران انجام نشد.')}
+}
+
 async function loadAdminOffers(){
  setAdminMode(true);const p=ensureAdminPanel();p.hidden=false;p.innerHTML='<div class="container"><h2>پنل مدیریت آگهی‌ها</h2><p>در حال دریافت آگهی‌های فضای ابری...</p></div>';
  try{const d=await api('/api/admin/offers');adminOffers=d.offers||[];renderAdminPanel()}
