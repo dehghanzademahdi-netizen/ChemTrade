@@ -42,6 +42,8 @@ internal object ChemLinkAuthApi {
     suspend fun verifyOtp(phone: String, code: String, purpose: String) =
         request("/verify-otp", "POST", body = JSONObject().put("phone", phone).put("code", code).put("purpose", purpose))
 
+    suspend fun me(token: String) = request("/me", token = token)
+
     suspend fun profile(token: String) = request("/profile", token = token)
 
     suspend fun saveProfile(token: String, profile: JSONObject) =
