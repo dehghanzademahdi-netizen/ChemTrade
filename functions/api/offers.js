@@ -15,7 +15,7 @@ async function readOffers(){
  const data=await r.json();
  return Array.isArray(data)?data:(data&&typeof data==="object"?Object.values(data):[]);
 }
-function publicOffer(o){return {id:o.id,kind:o.kind||(o.type==="buy"||String(o.description||"").includes("نوع آگهی: درخواست خرید")?"buy":"sell"),name:o.name||"",official:o.publishedOfficial||o.official||"",market:o.publishedMarket||o.market||"",quantity:o.quantity||o.amount||o.time||"",place:o.place||"",supplier:o.supplier||"",phone:o.phone||"",description:o.description||"",photo:o.photo||"",status:String(o.status||"PENDING").toUpperCase(),createdAt:o.createdAt||o.created_at||0,updatedAt:o.updatedAt||o.updated_at||0};}
+function publicOffer(o){return {id:o.id,kind:o.kind||(o.type==="buy"||String(o.description||"").includes("نوع آگهی: درخواست خرید")?"buy":"sell"),name:o.name||"",official:o.publishedOfficial||o.official||"",market:o.publishedMarket||o.market||"",quantity:o.quantity||o.amount||"",deliveryTime:o.time||"",place:o.place||"",supplier:o.supplier||"",phone:o.phone||"",description:o.description||"",photo:o.photo||"",status:String(o.status||"PENDING").toUpperCase(),createdAt:o.createdAt||o.created_at||0,updatedAt:o.updatedAt||o.updated_at||0};}
 export async function onRequestGet({request,env}){
  try{
   const url=new URL(request.url),mine=url.searchParams.get("mine")==="1";
