@@ -56,7 +56,7 @@ if 'val scope = rememberCoroutineScope()' not in main_block:
         raise SystemExit('MainScreen context line ending not found')
     s = s[:line_end + 1] + '    val scope = rememberCoroutineScope()\n' + s[line_end + 1:]
 
-if 'scope.launch(kotlinx.coroutines.Dispatchers.IO) { CloudStore.push(prefs) }' not in s:
+if 'ChemLinkOffersApi' not in s and 'scope.launch(kotlinx.coroutines.Dispatchers.IO) { CloudStore.push(prefs) }' not in s:
     marker = 'persistOffers(prefs, list)'
     if marker not in s:
         raise SystemExit('MainActivity offer persistence marker not found')
@@ -83,6 +83,6 @@ m.write_text(s, encoding='utf-8')
 entry = e.read_text(encoding='utf-8')
 main = m.read_text(encoding='utf-8')
 assert 'CloudStore.saveUser' in entry, 'CloudStore.saveUser hook missing from EntryActivity'
-assert 'CloudStore.pull(prefs)' in main, 'CloudStore.pull hook missing from MainActivity'
-assert 'CloudStore.push(prefs)' in main, 'CloudStore.push hook missing from MainActivity'
+assert 'ChemLinkOffersApi.adminOffers' in main, 'shared cloud admin offers API missing from MainActivity'
+assert 'ChemLinkOffersApi.createOrUpdate' in main, 'shared cloud user offers API missing from MainActivity'
 print('REAL CLOUD WRITE + OFFER EDIT HOOKS VERIFIED')
