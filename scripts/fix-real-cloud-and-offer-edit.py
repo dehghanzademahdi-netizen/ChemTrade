@@ -6,10 +6,18 @@ root = Path('app/src/main/java/com/dehghanzadeh/chemtrade')
 e = root / 'EntryActivity.kt'
 s = e.read_text(encoding='utf-8')
 if 'CloudStore.saveUser' not in s and 'ChemLinkAuthApi' in s:
-    marker = 'saveRegisteredUser(context, savedUser)'
+    marker = 'saveRegisteredUser(context, EntryUser(phone, savedRole, p.optString("fullName"), p.optString("companyName"), p.optString("address"), p.optString("city"), p.optString("landline")))'
     if marker not in s:
         raise SystemExit('EntryActivity shared-auth save marker not found')
-    s = s.replace(marker, marker + '\n        scope.launch(kotlinx.coroutines.Dispatchers.IO) { CloudStore.saveUser(context.getSharedPreferences("chemlink", Context.MODE_PRIVATE), savedUser.toJson()) }', 1)
+    cloudSync = '''val cloudUser = org.json.JSONObject().apply {
+            put("phone", phone); put("type", savedRole); put("name", p.optString("fullName"))
+            put("company", p.optString("companyName")); put("address", p.optString("address"))
+            put("city", p.optString("city")); put("landline", p.optString("landline"))
+        }
+        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            CloudStore.saveUser(context.getSharedPreferences("chemlink", Context.MODE_PRIVATE), cloudUser)
+        }'''
+    s = s.replace(marker, marker + '\n        ' + cloudSync, 1)
 elif 'CloudStore.saveUser' not in s:
     marker = 'saveRegisteredUser(context, EntryUser(phone, accountType, profileName.trim(), company.trim(), address.trim(), city.trim(), landline))'
     if marker not in s:
