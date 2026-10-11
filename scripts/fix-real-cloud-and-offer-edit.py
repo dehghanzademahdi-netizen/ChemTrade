@@ -5,7 +5,12 @@ root = Path('app/src/main/java/com/dehghanzadeh/chemtrade')
 # Entry: write every newly completed account to Firebase immediately.
 e = root / 'EntryActivity.kt'
 s = e.read_text(encoding='utf-8')
-if 'CloudStore.saveUser' not in s:
+if 'CloudStore.saveUser' not in s and 'ChemLinkAuthApi' in s:
+    marker = 'saveRegisteredUser(context, savedUser)'
+    if marker not in s:
+        raise SystemExit('EntryActivity shared-auth save marker not found')
+    s = s.replace(marker, marker + '\\n        scope.launch(kotlinx.coroutines.Dispatchers.IO) { CloudStore.saveUser(context.getSharedPreferences("chemlink", Context.MODE_PRIVATE), savedUser.toJson()) }', 1)
+elif 'CloudStore.saveUser' not in s:
     marker = 'saveRegisteredUser(context, EntryUser(phone, accountType, profileName.trim(), company.trim(), address.trim(), city.trim(), landline))'
     if marker not in s:
         raise SystemExit('EntryActivity profile-save marker not found')
