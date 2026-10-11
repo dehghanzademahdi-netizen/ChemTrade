@@ -60,7 +60,9 @@ s = s.replace('if (offer.publishedOfficial.isNotBlank()) Text("قیمت رسمی
 s = s.replace('Text("برای خرید یا هماهنگی با مدیریت:", fontWeight = FontWeight.Bold)', 'Text(if (offer.kind == OfferKind.REQUEST) "برای اعلام قیمت یا هماهنگی با مدیریت:" else "برای خرید یا هماهنگی با مدیریت:", fontWeight = FontWeight.Bold)', 1)
 
 # Persist/load the ad type.
-s = s.replace('Offer(id = o.optInt("id"), name = o.optString("name"),', 'Offer(id = o.optInt("id"), kind = runCatching { OfferKind.valueOf(o.optString("kind", "SALE")) }.getOrDefault(OfferKind.SALE), name = o.optString("name"),', 1)
+s = s.replace('Offer(id = o.optInt("id"), name = o.optString("name"),', 'Offer(id = o.optInt("id"), kind = if (o.optString("kind").equals("buy", true) || o.optString("kind") == "REQUEST") OfferKind.REQUEST else OfferKind.SALE, name = o.optString("name"),', 1)
+s = s.replace('id = o.optInt("id"), name = o.optString("name"), official = o.optString("official"),', 'id = o.optInt("id"), kind = if (o.optString("kind").equals("buy", true) || o.optString("kind") == "REQUEST") OfferKind.REQUEST else OfferKind.SALE, name = o.optString("name"), official = o.optString("official"),', 1)
+s = s.replace('.put("kind", "sell")', '.put("kind", if (input.kind == OfferKind.REQUEST) "buy" else "sell")', 1)
 s = s.replace('put("id", o.id); put("name", o.name);', 'put("id", o.id); put("kind", o.kind.name); put("name", o.name);', 1)
 
 # Brighter premium cyan/silver canvas while retaining contrast.
