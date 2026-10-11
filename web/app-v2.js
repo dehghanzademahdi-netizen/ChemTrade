@@ -1,64 +1,36 @@
 const DB_URL='https://chemlink-8909b-default-rtdb.firebaseio.com';
-let listings=[];
+let listings=[],currentProfile=null;
 const $=id=>document.getElementById(id);
 const getSession=()=>localStorage.getItem('chemlinkSession')||'';
 const loggedIn=()=>!!getSession();
-function showLogin(){const m=$('modal');if(!m)return;m.classList.add('show','open');m.style.display='flex';m.setAttribute('aria-hidden','false');setTimeout(()=>$('phone')?.focus(),50)}
+function showLogin(){const m=$('modal');if(!m)return;m.classList.add('show','open');m.style.display='flex';m.setAttribute('aria-hidden','false')}
 function hideLogin(){const m=$('modal');if(!m)return;m.classList.remove('show','open');m.style.display='none';m.setAttribute('aria-hidden','true')}
 function showIOSInstall(){const s=$('app-download');if(!s)return;let g=$('iosInstallGuide');if(!g){g=document.createElement('div');g.id='iosInstallGuide';g.style.cssText='margin-top:18px;padding:18px 20px;border:1px solid #dbe3ee;border-radius:16px;background:#f8fafc;color:#10233e;line-height:1.9';g.innerHTML='<strong style="display:block;font-size:15px;margin-bottom:7px">📱 نصب ChemLink روی آیفون</strong><span style="display:block;font-size:12px;color:#475569">این دکمه نمی‌تواند به‌تنهایی برنامه را به صفحه اصلی آیفون اضافه کند؛ iOS این کار را از داخل Safari انجام می‌دهد.</span><ol style="margin:9px 0 0;padding-right:22px;font-size:12px;color:#334155"><li>همین سایت را با <b>Safari</b> باز کنید.</li><li>دکمه <b>Share / اشتراک‌گذاری</b> را بزنید.</li><li><b>Add to Home Screen / افزودن به صفحه اصلی</b> را انتخاب کنید.</li><li>اگر گزینه <b>Open as Web App / باز کردن به‌عنوان وب‌اپ</b> نمایش داده شد، آن را روشن کنید و <b>Add</b> را بزنید.</li></ol><div style="margin-top:10px;font-size:10px;color:#64748b">بعد از این کار آیکون ChemLink روی Home Screen آیفون اضافه می‌شود.</div>';s.querySelector('.app-download-inner')?.appendChild(g)}g.scrollIntoView({behavior:'smooth',block:'center'});g.style.boxShadow='0 0 0 3px rgba(14,165,233,.15)';setTimeout(()=>g.style.boxShadow='',1800)}
-function normalizePhone(v){v=(v||'').replace(/\s|-/g,'');return v.startsWith('+98')?'0'+v.slice(3):v}
+function normalizePhone(v){v=(v||'').replace(/[\s-]/g,'');return v.startsWith('+98')?'0'+v.slice(3):v}
 function validPhone(v){return /^09\d{9}$/.test(v)}
-function getRoot(){return fetch(DB_URL+'/chemlink.json').then(r=>{if(!r.ok)throw Error('database');return r.json()}).then(x=>x||{})}
-async function loadListings(){if(!loggedIn()){renderLocked();return}try{const root=await getRoot(),arr=Array.isArray(root.offers)?root.offers:Object.values(root.offers||{});listings=arr.filter(x=>x&&String(x.status||'').toUpperCase()==='APPROVED').map(x=>({name:x.name||'',official:x.publishedOfficial||x.official||'',market:x.publishedMarket||x.market||'',place:x.place||'',time:x.time||'',photo:x.photo||''}));renderListings(listings)}catch(e){const g=$('listingGrid');if(g)g.innerHTML='<div class="empty">اتصال به بازار آنلاین برقرار نشد.</div>}}
-function renderLocked(){$('listingGrid').innerHTML='<div class="empty"><b>برای دیدن آگهی‌ها وارد حساب شوید</b><br><button class="primary" id="lockedLogin">ورود با پیامک</button></div>';const b=$('lockedLogin');if(b)b.onclick=showLogin}
+async function api(path,options={}){const headers={'Content-Type':'application/json',...(options.headers||{})};if(getSession())headers.Authorization='Bearer '+getSession();const r=await fetch(path,{...options,headers,cache:'no-store'});const data=await r.json().catch(()=>({}));if(!r.ok||!data.ok)throw new Error(data.error||'ارتباط با سرور انجام نشد.');return data}
+async function getRoot(){const r=await fetch(DB_URL+'/chemlink.json',{cache:'no-store'});if(!r.ok)throw Error('database');return (await r.json())||{}}
+async function loadListings(){const grid=$('listingGrid');if(!grid)return;if(!loggedIn()||!currentProfile){renderLocked();return}try{const root=await getRoot(),arr=Array.isArray(root.offers)?root.offers:Object.values(root.offers||{});listings=arr.filter(x=>x&&String(x.status||'').toUpperCase()==='APPROVED').map(x=>({name:x.name||'',official:x.publishedOfficial||x.official||'',market:x.publishedMarket||x.market||'',place:x.place||'',time:x.time||'',photo:x.photo||''}));renderListings(listings)}catch(e){grid.innerHTML='<div class="empty">اتصال به بازار آنلاین برقرار نشد.</div>'}}
+function renderLocked(){const grid=$('listingGrid');if(!grid)return;grid.innerHTML='<div class="empty"><b>برای دیدن آگهی‌ها وارد حساب شوید</b><br><button class="primary" id="lockedLogin">ورود با پیامک</button></div>';const b=$('lockedLogin');if(b)b.onclick=()=>loggedIn()?loadProfile(true):showLogin()}
 function esc(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]||m))}
-function renderListings(items){$('listingGrid').innerHTML=items.length?items.map(x=>`<article class="listing-card">${x.photo?`<img src="${x.photo}" alt="">`:''}<div class="listing-body"><h3>${esc(x.name)}</h3><p>${esc(x.official)}</p><p>${esc(x.market)}</p><small>${esc(x.place)} ${x.time?'• '+esc(x.time):''}</small><button class="primary full details">مشاهده جزئیات و خرید</button></div></article>`).join(''):'<div class="empty">در حال حاضر آگهی تأییدشده‌ای وجود ندارد.</div>';document.querySelectorAll('.details').forEach(b=>b.onclick=()=>alert('برای هماهنگی خرید با مدیریت ChemLink تماس بگیرید.'))}
-async function startSmsLogin(){
-  const phone=normalizePhone($('phone')?.value);
-  if(!validPhone(phone)){if($('modalText'))$('modalText').textContent='لطفاً شماره موبایل را به صورت 09xxxxxxxxx وارد کنید.';return}
-  const button=$('modalAction'); if(button){button.disabled=true;button.textContent='در حال ارسال...'}
-  try{
-    const r=await fetch('/api/auth/send-otp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone,purpose:'user'})});
-    const data=await r.json().catch(()=>({}));
-    if(!r.ok||!data.ok) throw new Error(data.error||'ارسال کد انجام نشد.');
-    $('otpWrap').style.display='block';
-    $('phone').disabled=true;
-    if($('modalText'))$('modalText').textContent='کد ۶ رقمی ارسال شد. آن را وارد کنید.';
-    if(button){button.textContent='تأیید کد';button.disabled=false;button.onclick=verifySmsLogin}
-    $('otp')?.focus();
-  }catch(e){
-    if($('modalText'))$('modalText').textContent=e.message||'ارسال کد انجام نشد.';
-    if(button){button.textContent='دریافت کد پیامکی';button.disabled=false}
-  }
+function renderListings(items){const grid=$('listingGrid');if(!grid)return;grid.innerHTML=items.length?items.map(x=>'<article class="listing-card">'+(x.photo?'<img src="'+esc(x.photo)+'" alt="">':'')+'<div class="listing-body"><h3>'+esc(x.name)+'</h3><p>'+esc(x.official)+'</p><p>'+esc(x.market)+'</p><small>'+esc(x.place)+' '+(x.time?'• '+esc(x.time):'')+'</small><button class="primary full details">مشاهده جزئیات و خرید</button></div></article>').join(''):'<div class="empty">در حال حاضر آگهی تأییدشده‌ای وجود ندارد.</div>';document.querySelectorAll('.details').forEach(b=>b.onclick=()=>alert('برای هماهنگی خرید با مدیریت ChemLink تماس بگیرید.'))}
+function updateHeader(){const b=$('loginBtn');if(b)b.textContent=currentProfile?('حساب کاربری: '+currentProfile.fullName):'ورود / ثبت‌نام';const search=$('searchInput');if(search)search.disabled=!currentProfile}
+function showProfileForm(profile=null){
+ const card=document.querySelector('.modal-card');if(!card)return;
+ $('modalTitle').textContent=profile?'ویرایش اطلاعات حساب':'تکمیل ثبت‌نام در ChemLink';
+ $('phone').closest('label').style.display='none';$('otpWrap').style.display='none';$('recaptcha-container').style.display='none';
+ let form=$('profileForm');if(!form){form=document.createElement('form');form.id='profileForm';form.style.cssText='max-height:55vh;overflow:auto;padding:2px 2px 8px';$('modalAction').before(form)}
+ form.innerHTML='<label>نام و نام خانوادگی<input name="fullName" required minlength="2" autocomplete="name" value="'+esc(profile?.fullName||'')+'"></label><label>نام شرکت / مجموعه<input name="companyName" required minlength="2" autocomplete="organization" value="'+esc(profile?.companyName||'')+'"></label><label>نوع حساب<select name="role" required style="width:100%;padding:12px;margin-top:7px;border:1px solid var(--line);border-radius:11px;background:white"><option value="">انتخاب کنید</option><option value="buyer">خریدار / کارخانه / مصرف‌کننده</option><option value="supplier">تأمین‌کننده / فروشنده</option></select></label><label>شهر<input name="city" required minlength="2" autocomplete="address-level2" value="'+esc(profile?.city||'')+'"></label><label>زمینه فعالیت<input name="businessType" required minlength="2" placeholder="مثلاً تولید مواد شوینده، کشاورزی، پتروشیمی" value="'+esc(profile?.businessType||'')+'"></label><label>مواد اولیه موردنیاز یا قابل‌عرضه<textarea name="neededMaterials" rows="3" placeholder="نام مواد شیمیایی، گرید یا توضیحات (اختیاری)" style="width:100%;padding:12px;margin-top:7px;border:1px solid var(--line);border-radius:11px;font:inherit">'+esc(profile?.neededMaterials||'')+'</textarea></label>';
+ form.querySelector('[name="role"]').value=profile?.role||'';
+ $('modalText').textContent='شماره موبایل شما تأیید شده است. اطلاعات زیر را تکمیل کنید تا حساب شما ساخته و ذخیره شود.';
+ const button=$('modalAction');button.textContent='ذخیره اطلاعات و ورود';button.disabled=false;button.onclick=saveProfile;
 }
-async function verifySmsLogin(){
-  const phone=normalizePhone($('phone')?.value), code=String($('otp')?.value||'').replace(/\\D/g,'');
-  if(!validPhone(phone)||!/^[0-9]{6}$/.test(code)){if($('modalText'))$('modalText').textContent='شماره موبایل یا کد ۶ رقمی معتبر نیست.';return}
-  const button=$('modalAction'); if(button){button.disabled=true;button.textContent='در حال تأیید...'}
-  try{
-    const r=await fetch('/api/auth/verify-otp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone,code,purpose:'user'})});
-    const data=await r.json().catch(()=>({}));
-    if(!r.ok||!data.ok) throw new Error(data.error||'تأیید کد انجام نشد.');
-    localStorage.setItem('chemlinkSession',data.token);
-    localStorage.setItem('chemlinkPhone',data.phone||phone);
-    if($('modalText'))$('modalText').textContent='ورود با موفقیت انجام شد.';
-    if(button){button.textContent='ورود انجام شد';button.disabled=true}
-    $('searchInput')?.removeAttribute('disabled');
-    setTimeout(()=>{hideLogin();loadListings()},500);
-  }catch(e){
-    if($('modalText'))$('modalText').textContent=e.message||'تأیید کد انجام نشد.';
-    if(button){button.textContent='تأیید کد';button.disabled=false}
-  }
-}
-async function restoreSession(){
-  const token=getSession(); if(!token)return;
-  try{
-    const r=await fetch('/api/auth/me',{headers:{Authorization:'Bearer '+token},cache:'no-store'});
-    if(!r.ok){localStorage.removeItem('chemlinkSession');localStorage.removeItem('chemlinkPhone');return}
-    if($('searchInput'))$('searchInput').disabled=false;
-  }catch(e){}
-}
-
-function wire(){['loginBtn','searchBtn','postBtn','ctaPost','footerLogin','footerPost'].forEach(id=>{const el=$(id);if(el)el.onclick=e=>{e.preventDefault();showLogin()}});$('closeModal')?.addEventListener('click',hideLogin);$('modal')?.addEventListener('click',e=>{if(e.target===$('modal'))hideLogin()});const button=$('modalAction');if(button)button.onclick=startSmsLogin;document.querySelectorAll('.category,.filter').forEach(el=>el.addEventListener('click',e=>{if(!loggedIn()){e.preventDefault();showLogin()}}));document.querySelectorAll('.app-top-btn.ios').forEach(el=>el.addEventListener('click',e=>{e.preventDefault();showIOSInstall()}));$('searchInput')?.addEventListener('input',()=>{const q=$('searchInput').value.trim().toLowerCase();renderListings(listings.filter(x=>(x.name+' '+x.official+' '+x.market+' '+x.place).toLowerCase().includes(q))});if(loggedIn()&&$('searchInput'))$('searchInput').disabled=false;restoreSession();loadListings()}
-window.addEventListener('error',e=>{const t=$('modalText');if(t)t.textContent=`خطای صفحه: ${e.message||'خطای ناشناخته'}`});
+function restoreLoginForm(){const form=$('profileForm');if(form)form.remove();$('phone').closest('label').style.display='block';$('otpWrap').style.display='none';$('recaptcha-container').style.display='block';$('phone').disabled=false;$('modalTitle').textContent='ورود / ثبت‌نام با پیامک';$('modalText').textContent='شماره موبایل خود را وارد کنید تا کد تأیید پیامکی دریافت کنید.';$('modalAction').textContent='دریافت کد پیامکی';$('modalAction').disabled=false;$('modalAction').onclick=startSmsLogin}
+async function startSmsLogin(){const phone=normalizePhone($('phone')?.value);if(!validPhone(phone)){$('modalText').textContent='لطفاً شماره موبایل معتبر ۱۱ رقمی وارد کنید.';return}const b=$('modalAction');b.disabled=true;b.textContent='در حال ارسال...';try{await api('/api/auth/send-otp',{method:'POST',body:JSON.stringify({phone,purpose:'user'})});$('otpWrap').style.display='block';$('phone').disabled=true;$('modalText').textContent='کد ۶ رقمی ارسال شد. آن را وارد کنید.';b.textContent='تأیید کد';b.onclick=verifySmsLogin;$('otp')?.focus()}catch(e){$('modalText').textContent=e.message||'ارسال کد انجام نشد.';b.textContent='دریافت کد پیامکی'}finally{b.disabled=false}}
+async function verifySmsLogin(){const phone=normalizePhone($('phone')?.value),code=String($('otp')?.value||'').replace(/\D/g,'');if(!validPhone(phone)||!/^\d{6}$/.test(code)){$('modalText').textContent='شماره موبایل یا کد ۶ رقمی معتبر نیست.';return}const b=$('modalAction');b.disabled=true;b.textContent='در حال تأیید...';try{const data=await api('/api/auth/verify-otp',{method:'POST',body:JSON.stringify({phone,code,purpose:'user'})});localStorage.setItem('chemlinkSession',data.token);localStorage.setItem('chemlinkPhone',data.phone||phone);const p=await api('/api/auth/profile',{method:'GET'});if(p.registered&&p.profile){currentProfile=p.profile;updateHeader();hideLogin();await loadListings()}else showProfileForm(p.profile||null)}catch(e){$('modalText').textContent=e.message||'تأیید کد انجام نشد.';b.textContent='تأیید کد'}finally{b.disabled=false}}
+async function saveProfile(e){if(e)e.preventDefault();const form=$('profileForm');if(!form||!form.reportValidity())return;const values=Object.fromEntries(new FormData(form).entries());const b=$('modalAction');b.disabled=true;b.textContent='در حال ذخیره...';try{const data=await api('/api/auth/profile',{method:'POST',body:JSON.stringify(values)});currentProfile=data.profile;updateHeader();hideLogin();await loadListings()}catch(err){$('modalText').textContent=err.message||'ذخیره اطلاعات انجام نشد.'}finally{b.disabled=false;b.textContent='ذخیره اطلاعات و ورود'}}
+async function loadProfile(openForm=false){try{const p=await api('/api/auth/profile',{method:'GET'});if(p.registered&&p.profile){currentProfile=p.profile;updateHeader();if(openForm){showProfileForm(p.profile);showLogin()}else hideLogin();await loadListings()}else{currentProfile=null;updateHeader();showProfileForm(p.profile||null);showLogin();renderLocked()}}catch(e){currentProfile=null;updateHeader();localStorage.removeItem('chemlinkSession');localStorage.removeItem('chemlinkPhone');restoreLoginForm();renderLocked()}}
+async function restoreSession(){if(!getSession()){updateHeader();renderLocked();return}try{await api('/api/auth/me',{method:'GET'});await loadProfile(false)}catch(e){localStorage.removeItem('chemlinkSession');localStorage.removeItem('chemlinkPhone');currentProfile=null;updateHeader();renderLocked()}}
+function wire(){['loginBtn','searchBtn','postBtn','ctaPost','footerLogin','footerPost'].forEach(id=>{const el=$(id);if(el)el.onclick=e=>{e.preventDefault();if(currentProfile){showProfileForm(currentProfile);showLogin()}else showLogin()}});$('closeModal')?.addEventListener('click',hideLogin);$('modal')?.addEventListener('click',e=>{if(e.target===$('modal'))hideLogin()});$('modalAction')?.addEventListener('click',startSmsLogin);document.querySelectorAll('.category,.filter').forEach(el=>el.addEventListener('click',e=>{if(!currentProfile){e.preventDefault();showLogin()}}));document.querySelectorAll('.app-top-btn.ios').forEach(el=>el.addEventListener('click',e=>{e.preventDefault();showIOSInstall()}));$('searchInput')?.addEventListener('input',()=>{const q=$('searchInput').value.trim().toLowerCase();renderListings(listings.filter(x=>(x.name+' '+x.official+' '+x.market+' '+x.place).toLowerCase().includes(q)))});restoreSession()}
+window.addEventListener('error',e=>{const t=$('modalText');if(t)t.textContent='خطای صفحه: '+(e.message||'خطای ناشناخته')});
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',wire);else wire();
