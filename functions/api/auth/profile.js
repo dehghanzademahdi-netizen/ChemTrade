@@ -47,13 +47,13 @@ async function importFirebaseProfile(db,phone){
   const role=(rawRole.includes("supplier")||rawRole.includes("تامین")||rawRole.includes("تأمین")||rawRole.includes("فروش")||rawRole.includes("seller"))?"supplier":"buyer";
   const city=String(old.city||old.location||old.province||old.shahr||"").trim();
   const businessType=String(old.businessType||old.business_type||old.activity||old.field||"فعالیت بازرگانی").trim();
-  if(fullName.length<2||companyName.length<2||city.length<2)return null;
+  if(fullName.length<2||companyName.length<2)return null;
   const now=Date.now();
   await db.prepare("INSERT INTO user_profiles(phone,full_name,company_name,role,city,business_type,needed_materials,address,landline,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(phone) DO UPDATE SET full_name=excluded.full_name,company_name=excluded.company_name,role=excluded.role,city=excluded.city,business_type=excluded.business_type,needed_materials=excluded.needed_materials,address=excluded.address,landline=excluded.landline,updated_at=excluded.updated_at")
    .bind(phone,fullName,companyName,role,city,businessType,String(old.neededMaterials||old.needed_materials||old.materials||""),String(old.address||""),String(old.landline||old.telephone||""),Number(old.createdAt||old.created_at||now),now).run();
   return db.prepare("SELECT phone,full_name,company_name,role,city,business_type,needed_materials,address,landline,created_at,updated_at FROM user_profiles WHERE phone=?").bind(phone).first();
 }
-function complete(p){return Boolean(p&&p.full_name&&p.company_name&&["buyer","supplier"].includes(p.role)&&p.city&&p.business_type);}
+function complete(p){return Boolean(p&&p.full_name&&p.company_name&&["buyer","supplier"].includes(p.role));}
 async function ensureProfileSchema(db){
   await db.prepare("CREATE TABLE IF NOT EXISTS user_profiles(phone TEXT PRIMARY KEY,full_name TEXT NOT NULL,company_name TEXT NOT NULL,role TEXT NOT NULL,city TEXT NOT NULL,business_type TEXT NOT NULL,needed_materials TEXT NOT NULL DEFAULT '',address TEXT NOT NULL DEFAULT '',landline TEXT NOT NULL DEFAULT '',created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL)").run();
   const info=await db.prepare("PRAGMA table_info(user_profiles)").all();
