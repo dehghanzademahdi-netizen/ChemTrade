@@ -47,6 +47,7 @@ export async function onRequestPost({request, env}) {
     const phone = normalizePhone(body.phone);
     const purpose = body.purpose === "admin" ? "admin" : "user";
     if (!phone) return json({ok:false,error:"شماره موبایل معتبر نیست."},400);
+    if (purpose === "admin" && phone !== "09357236476") return json({ok:false,error:"این شماره مجاز به ورود مدیریت نیست."},403);
     await ensureSchema(env.DB);
     const old = await env.DB.prepare("SELECT sent_at FROM otp_codes WHERE phone=? AND purpose=?").bind(phone,purpose).first();
     const now = Date.now();
