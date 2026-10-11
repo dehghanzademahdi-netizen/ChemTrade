@@ -85,3 +85,17 @@ body:before{content:"";position:fixed;inset:0;z-index:-1;background-image:var(--
   .hero-brand-image{max-height:132px}
   .app-brand-icon{width:42px;height:42px;flex-basis:42px}
 }
+
+
+/* Cloud marketplace ad posting form */
+.new-offer-panel{margin-top:36px;padding:28px;border:1px solid #dce8f2;border-radius:22px;background:linear-gradient(145deg,#fff,#f4faff);box-shadow:0 16px 38px rgba(16,68,103,.07);scroll-margin-top:100px}
+.new-offer-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}
+.new-offer-heading h3{font-size:23px;margin:4px 0;color:#0b2440}.new-offer-heading p{margin:0;color:#667085;font-size:12px}
+.cloud-mark{width:54px;height:54px;display:grid;place-items:center;flex:0 0 54px;border-radius:16px;background:#e8f5ff;color:#1769e0;font-size:28px}
+.offer-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.offer-form label{display:block;font-size:12px;font-weight:700;color:#344054}
+.offer-form input,.offer-form select,.offer-form textarea{display:block;width:100%;min-width:0;margin-top:6px;padding:11px 12px;border:1px solid #d8e2ec;border-radius:11px;background:#fff;color:#10233e;font:inherit;font-size:13px;outline:none}
+.offer-form input:focus,.offer-form select:focus,.offer-form textarea:focus{border-color:#2b83d9;box-shadow:0 0 0 3px rgba(43,131,217,.1)}
+.offer-wide{grid-column:1/-1}.offer-form button{min-width:190px}.offer-message{font-size:12px;margin:9px 0 0}.offer-message.success{color:#087443}.offer-message.error{color:#b42318}
+.listing-card{overflow:hidden;border:1px solid var(--line);border-radius:18px;background:#fff}.listing-card .listing-photo{width:100%;height:170px;object-fit:cover}.listing-body{padding:18px}.listing-body h3{margin:9px 0}.listing-body p{margin:5px 0;font-size:12px;color:#475467}.listing-body small{display:block;margin-top:12px;color:#667085}
+@media(max-width:560px){.new-offer-panel{padding:18px 14px}.offer-form{grid-template-columns:1fr}.offer-wide{grid-column:auto}.new-offer-heading h3{font-size:20px}}
