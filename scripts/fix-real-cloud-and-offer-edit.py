@@ -49,10 +49,10 @@ if 'val scope = rememberCoroutineScope()' not in s:
     context_pos = s.find(needle, main_start)
     if context_pos < 0:
         raise SystemExit('MainScreen context hook not found')
-    line_end = s.find('\\n', context_pos)
+    line_end = s.find('\n', context_pos)
     if line_end < 0:
         raise SystemExit('MainScreen context line ending not found')
-    s = s[:line_end + 1] + '    val scope = rememberCoroutineScope()\\n' + s[line_end + 1:]
+    s = s[:line_end + 1] + '    val scope = rememberCoroutineScope()\n' + s[line_end + 1:]
 
 if 'scope.launch(kotlinx.coroutines.Dispatchers.IO) { CloudStore.push(prefs) }' not in s:
     marker = 'persistOffers(prefs, list)'
