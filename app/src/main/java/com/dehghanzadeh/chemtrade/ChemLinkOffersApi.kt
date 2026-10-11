@@ -41,6 +41,7 @@ internal object ChemLinkOffersApi {
     suspend fun myOffers(token: String) = request("/offers?mine=1", token = token)
     suspend fun createOrUpdate(token: String, offer: JSONObject) = request("/offers", "POST", token, offer)
     suspend fun adminOffers(token: String) = request("/admin/offers", token = token)
+    suspend fun adminCreate(token: String, offer: JSONObject) = request("/admin/offers", "POST", token, offer)
     suspend fun updateAdmin(token: String, id: String, status: String, marginType: String = "PERCENT", margin: Double = 0.0, reason: String = "") =
         request("/admin/offers", "POST", token, JSONObject().put("id", id).put("status", status).put("marginType", marginType).put("margin", margin).put("reason", reason))
 }
