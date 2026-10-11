@@ -95,7 +95,7 @@ function renderAdminPanel(message=''){
  const tabs=[['PENDING','در انتظار بررسی'],['APPROVED','منتشرشده'],['REJECTED','نیازمند اصلاح'],['USERS','مدیریت کاربران']];
  let html='<div class="container"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div><span class="kicker">CHEMLINK ADMIN</span><h2 style="margin:6px 0">پنل مدیریت آگهی‌ها</h2><p style="margin:0;color:#64748b">بررسی آگهی، اعمال سود روی هر دو قیمت و انتشار در بازار</p></div><button id="adminRefresh" class="ghost">به‌روزرسانی</button></div>';
  if(message)html+='<p style="padding:12px;border-radius:10px;background:#fff7ed;color:#9a3412">'+esc(message)+'</p>';
- html+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin:20px 0">'+tabs.map(t=>'<button class="'+(adminTab===t[0]?'primary':'ghost')+'" data-admin-tab="'+t[0]+'">'+t[1]+' ('+adminOffers.filter(o=>String(o.status||'PENDING').toUpperCase()===t[0]).length+')</button>').join('')+'</div>';
+ html+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin:20px 0">'+tabs.map(t=>'<button class="'+(adminTab===t[0]?'primary':'ghost')+'" data-admin-tab="'+t[0]+'">'+t[1]+' ('+(t[0]==='USERS'?adminUsers.length:adminOffers.filter(o=>String(o.status||'PENDING').toUpperCase()===t[0]).length)+')</button>').join('')+'</div>';
  html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;align-items:start">';
  if(!items.length)html+='<div class="empty" style="grid-column:1/-1">در این بخش آگهی‌ای وجود ندارد.</div>';
  items.forEach(o=>{html+='<article style="background:white;border:1px solid #dbe3ee;border-radius:16px;padding:16px;box-shadow:0 5px 18px #0f172a0a"><div style="display:flex;justify-content:space-between;gap:8px"><span class="badge">'+(o.kind==='buy'?'درخواست خرید':'عرضه برای فروش')+'</span><small>'+adminStatusLabel(String(o.status||'PENDING').toUpperCase())+'</small></div><h3 style="margin:12px 0 6px">'+esc(o.name||'بدون نام')+'</h3><p style="margin:4px 0"><b>مقدار:</b> '+esc(o.quantity||'ثبت نشده')+'</p><p style="margin:4px 0"><b>قیمت رسمی تأمین‌کننده:</b> '+esc(o.official||'ثبت نشده')+'</p><p style="margin:4px 0"><b>قیمت غیررسمی تأمین‌کننده:</b> '+esc(o.market||'ثبت نشده')+'</p><p style="margin:4px 0"><b>تحویل:</b> '+esc(o.place||'')+' — '+esc(o.time||'')+'</p><p style="margin:4px 0"><b>فروشنده:</b> '+esc(o.supplier||'')+'</p><p style="margin:4px 0"><b>تلفن:</b> '+esc(o.phone||o.owner||'')+'</p><p style="white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0">'+esc(o.description||'')+'</p>';
@@ -146,8 +146,8 @@ async function loadAdminOffers(message=''){
 }
 async function adminDecision(id,status){
  if(!id)return;const type=$('adminMarginType')?.value||selectedAdminOffer?.marginType||'PERCENT',margin=Number($('adminMargin')?.value??selectedAdminOffer?.margin??0)||0,reason=$('adminReason')?.value||'';
- try{await api('/api/admin/offers',{method:'POST',body:JSON.stringify({id,status,marginType:type,margin,reason:status==='REJECTED'?(reason||'لطفاً اطلاعات آگهی را اصلاح کنید'):reason})});selectedAdminOffer=null;await loadAdminOffers()}
- catch(e){renderAdminPanel('ذخیره تغییرات انجام نشد: '+(e.message||'خطای نامشخص'))}
+ try{await api('/api/admin/offers',{method:'POST',body:JSON.stringify({id,status,marginType:type,margin,reason:status==='REJECTED'?(reason||'لطفاً اطلاعات آگهی را اصلاح کنید'):reason})});selectedAdminOffer=null;await loadAdminOffers(status==='APPROVED'?'وضعیت آگهی در فضای ابری ذخیره شد؛ فهرست عمومی را هم تازه‌سازی کردیم.':'تغییر وضعیت آگهی ذخیره شد.');await loadListings()}
+ catch(e){renderAdminPanel('انتشار/ذخیره انجام نشد: '+(e.message||'خطای نامشخص'))}
 }
 function logoutAccount(){
  localStorage.removeItem('chemlinkSession');localStorage.removeItem('chemlinkPhone');localStorage.removeItem('chemlinkRole');currentProfile=null;adminOffers=[];selectedAdminOffer=null;adminTab='PENDING';setAdminMode(false);updateHeader();hideLogin();loadListings();
