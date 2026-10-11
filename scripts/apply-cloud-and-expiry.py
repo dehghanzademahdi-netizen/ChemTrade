@@ -11,12 +11,12 @@ e = E.read_text(encoding='utf-8')
 # CloudStore is the source of truth; local SharedPreferences are only a cache/recovery copy.
 old = '''    var phone by remember { mutableStateOf(prefs.getString("phone", "").orEmpty()) }\n    var offers by remember { mutableStateOf(loadOffers(prefs)) }'''
 new = '''    var phone by remember { mutableStateOf(prefs.getString("phone", "").orEmpty()) }\n    var offers by remember { mutableStateOf(loadOffers(prefs)) }\n\n    LaunchedEffect(Unit) {\n        if (CloudStore.enabled()) {\n            CloudStore.pull(prefs)\n            offers = loadOffers(prefs)\n        }\n    }'''
-if old in m and 'CloudStore.pull(prefs)' not in m:
+if old in m and 'CloudStore.pull(prefs)' not in m and 'ChemLinkOffersApi' not in m:
     m = m.replace(old, new, 1)
 
 old = '''        offers = list; persistOffers(prefs, list)\n    }'''
 new = '''        offers = list; persistOffers(prefs, list)\n        if (CloudStore.enabled()) {\n            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch { CloudStore.push(prefs) }\n        }\n    }'''
-if old in m and 'CloudStore.push(prefs)' not in m:
+if old in m and 'CloudStore.push(prefs)' not in m and 'ChemLinkOffersApi' not in m:
     m = m.replace(old, new, 1)
 
 # Do not make expiry destructive: expired offers remain stored and recoverable.
