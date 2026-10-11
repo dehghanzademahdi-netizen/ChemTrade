@@ -43,9 +43,19 @@ export async function onRequestPost({request,env}){
  try{
   const s=await adminSession(request,env);if(!s)return json({ok:false,error:"ورود مدیریت معتبر نیست؛ دوباره وارد شوید."},401);
   const body=await request.json().catch(()=>({}));
+  const offers=await readOffers();
+  if(body.action==="CREATE"){
+   const name=String(body.name||"").trim().slice(0,180),place=String(body.place||"").trim().slice(0,120),quantity=String(body.quantity||"").trim().slice(0,100);
+   if(name.length<2||place.length<2||quantity.length<1)return json({ok:false,error:"نام ماده، مقدار و محل تحویل را کامل کنید."},400);
+   const photo=String(body.photo||"").trim().slice(0,1500);
+   if(photo&&!/^https:\/\//i.test(photo))return json({ok:false,error:"لینک عکس باید با https شروع شود."},400);
+   const now=Date.now(),id=offers.reduce((max,o)=>Math.max(max,Number(o?.id)||0),0)+1;
+   const offer={id,kind:body.kind==="buy"?"buy":"sell",name,official:String(body.official||"").trim().slice(0,100),market:String(body.market||"").trim().slice(0,100),quantity,time:String(body.time||quantity).trim().slice(0,120),place,supplier:String(body.supplier||"").trim().slice(0,160),phone:String(body.phone||s.phone).trim().slice(0,30),owner:s.phone,description:String(body.description||"").trim().slice(0,2000),photo,status:"PENDING",reason:"",marginType:"PERCENT",margin:0,publishedOfficial:"",publishedMarket:"",createdAt:now,updatedAt:now};
+   offers.push(offer);await writeOffers(offers);return json({ok:true,offer},201);
+  }
   const id=String(body.id??"");const status=String(body.status||"").toUpperCase();
   if(!id||!["APPROVED","REJECTED","PENDING"].includes(status))return json({ok:false,error:"شناسه یا وضعیت آگهی معتبر نیست."},400);
-  const offers=await readOffers();const index=offers.findIndex(o=>o&&String(o.id)===id);
+  const index=offers.findIndex(o=>o&&String(o.id)===id);
   if(index<0)return json({ok:false,error:"آگهی در فضای ابری پیدا نشد."},404);
   const old=offers[index];if(status==="APPROVED"&&amount(old.official)===null&&amount(old.market)===null)return json({ok:false,error:"برای انتشار، حداقل یکی از قیمت‌های رسمی یا غیررسمی باید عدد قابل محاسبه داشته باشد."},400);const marginType=body.marginType==="TOMAN"?"TOMAN":"PERCENT";
   const margin=Math.max(0,Math.min(100000000000,Number(body.margin)||0));
