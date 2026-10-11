@@ -8,6 +8,7 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.telephony.SmsManager
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -51,6 +52,7 @@ private data class Offer(
     val name: String = "",
     val official: String = "",
     val market: String = "",
+    val quantity: String = "",
     val place: String = "",
     val time: String = "",
     val supplier: String = "",
@@ -105,7 +107,7 @@ private fun ChemTradeApp() {
 private fun MainScreen() {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("chemlink", Context.MODE_PRIVATE) }
-    var admin by remember { mutableStateOf(false) }
+    var admin by remember { mutableStateOf(prefs.getString("adminAuthToken", "").orEmpty().isNotBlank()) }
     var page by remember { mutableIntStateOf(0) }
     var showAdminLogin by remember { mutableStateOf(false) }
     var showOfferForm by remember { mutableStateOf(false) }
@@ -115,16 +117,83 @@ private fun MainScreen() {
     var search by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf(prefs.getString("phone", "").orEmpty()) }
     var offers by remember { mutableStateOf(loadOffers(prefs)) }
+    val scope = rememberCoroutineScope()
+
+    fun refreshCloud(showErrors: Boolean = false) {
+        scope.launch {
+            try {
+                val token = if (admin) prefs.getString("adminAuthToken", "").orEmpty() else prefs.getString("authToken", "").orEmpty()
+                val loaded: List<Offer> = if (admin) {
+                    val response = ChemLinkOffersApi.adminOffers(token)
+                    parseOfferArray(response.optJSONArray("offers") ?: JSONArray())
+                } else {
+                    val publicResponse = ChemLinkOffersApi.publicOffers()
+                    val combined = LinkedHashMap<Int, Offer>()
+                    parseOfferArray(publicResponse.optJSONArray("offers") ?: JSONArray()).forEach { combined[it.id] = it }
+                    if (token.isNotBlank()) {
+                        val mineResponse = runCatching { ChemLinkOffersApi.myOffers(token) }.getOrNull()
+                        parseOfferArray(mineResponse?.optJSONArray("offers") ?: JSONArray()).forEach { combined[it.id] = it }
+                    }
+                    combined.values.toList().sortedByDescending { it.id }
+                }
+                offers = loaded
+                persistOffers(prefs, loaded)
+            } catch (e: Exception) {
+                if (admin && (e.message.orEmpty().contains("ورود مدیریت") || e.message.orEmpty().contains("401"))) {
+                    prefs.edit().remove("adminAuthToken").apply()
+                    admin = false
+                    Toast.makeText(context, "نشست مدیریت منقضی شده است؛ دوباره وارد شوید.", Toast.LENGTH_LONG).show()
+                } else if (showErrors) {
+                    Toast.makeText(context, e.message ?: "همگام‌سازی انجام نشد.", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
 
     fun saveOffer(input: Offer) {
-        val list = offers.toMutableList(); val index = list.indexOfFirst { it.id == input.id }
-        if (index >= 0) list[index] = input else list.add(input.copy(id = (list.maxOfOrNull { it.id } ?: 0) + 1))
-        offers = list; persistOffers(prefs, list)
+        val token = if (admin) prefs.getString("adminAuthToken", "").orEmpty() else prefs.getString("authToken", "").orEmpty()
+        if (token.isBlank()) {
+            Toast.makeText(context, if (admin) "برای مدیریت دوباره وارد شوید." else "ابتدا وارد حساب کاربری شوید.", Toast.LENGTH_LONG).show()
+            return
+        }
+        val payload = JSONObject().put("kind", "sell").put("name", input.name).put("official", input.official)
+            .put("market", input.market).put("quantity", input.quantity.ifBlank { input.time.ifBlank { "ثبت نشده" } })
+            .put("place", input.place).put("time", input.time).put("supplier", input.supplier)
+            .put("phone", input.phone.ifBlank { phone }).put("description", input.description)
+            .put("photo", if (input.photo.startsWith("https://", true)) input.photo else "")
+            .put("reason", input.reason)
+        if (input.id > 0) payload.put("id", input.id)
+        scope.launch {
+            try {
+                if (admin) {
+                    if (input.id <= 0) {
+                        payload.put("action", "CREATE")
+                        ChemLinkOffersApi.adminCreate(token, payload)
+                    } else {
+                        ChemLinkOffersApi.updateAdmin(token, input.id.toString(), input.status.name, input.marginType.name, input.margin, input.reason)
+                    }
+                } else {
+                    ChemLinkOffersApi.createOrUpdate(token, payload)
+                }
+                refreshCloud(true)
+                if (input.photo.isNotBlank() && !input.photo.startsWith("https://", true)) {
+                    Toast.makeText(context, "آگهی همگام شد؛ عکس انتخابی محلی است و در دستگاه‌های دیگر نمایش داده نمی‌شود.", Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(context, "تغییرات در فضای ابری ذخیره شد.", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(context, e.message ?: "ذخیره در فضای ابری انجام نشد.", Toast.LENGTH_LONG).show()
+            }
+        }
     }
+
     fun logout() {
-        phone = ""; admin = false; prefs.edit().remove("phone").remove("type").remove("adminSession").apply()
+        phone = ""; admin = false
+        prefs.edit().remove("phone").remove("type").remove("adminSession").remove("adminAuthToken").remove("authToken").remove("chemlinkSession").apply()
         context.startActivity(Intent(context, EntryActivity::class.java)); (context as? ComponentActivity)?.finish()
     }
+
+    LaunchedEffect(admin, phone) { refreshCloud() }
 
     Scaffold(
         topBar = { TopAppBar(title = {
@@ -132,7 +201,7 @@ private fun MainScreen() {
                 Image(painterResource(R.drawable.ic_chemtrade_logo), "ChemLink", Modifier.size(34.dp))
                 Column { Text("ChemLink", fontWeight = FontWeight.ExtraBold); Text(if (admin) "پنل مدیریت" else "بازار مواد اولیه", style = MaterialTheme.typography.labelSmall, color = Gold) }
             }
-        }, actions = { if (admin) TextButton({ admin = false; page = 0 }) { Text("خروج") } }) },
+        }, actions = { if (admin) TextButton(::logout) { Text("خروج") } }) },
         bottomBar = { if (!admin) NavigationBar {
             NavigationBarItem(page == 0, { page = 0 }, { Text("⌂") }, label = { Text("بازار") })
             NavigationBarItem(page == 1, { page = 1 }, { Text("+") }, label = { Text("ثبت آگهی") })
@@ -246,12 +315,12 @@ private fun ReviewDialog(offer: Offer, close: () -> Unit, approve: (Offer) -> Un
 
 @Composable
 private fun OfferFormDialog(old: Offer?, owner: String, close: () -> Unit, submit: (Offer) -> Unit) {
-    var name by remember { mutableStateOf(old?.name.orEmpty()) }; var official by remember { mutableStateOf(old?.official.orEmpty()) }; var market by remember { mutableStateOf(old?.market.orEmpty()) }; var place by remember { mutableStateOf(old?.place.orEmpty()) }; var time by remember { mutableStateOf(old?.time.orEmpty()) }; var supplier by remember { mutableStateOf(old?.supplier.orEmpty()) }; var phone by remember { mutableStateOf(old?.phone ?: owner) }; var description by remember { mutableStateOf(old?.description.orEmpty()) }; var photo by remember { mutableStateOf(old?.photo.orEmpty()) }
+    var name by remember { mutableStateOf(old?.name.orEmpty()) }; var official by remember { mutableStateOf(old?.official.orEmpty()) }; var market by remember { mutableStateOf(old?.market.orEmpty()) }; var quantity by remember { mutableStateOf(old?.quantity.orEmpty()) }; var place by remember { mutableStateOf(old?.place.orEmpty()) }; var time by remember { mutableStateOf(old?.time.orEmpty()) }; var supplier by remember { mutableStateOf(old?.supplier.orEmpty()) }; var phone by remember { mutableStateOf(old?.phone ?: owner) }; var description by remember { mutableStateOf(old?.description.orEmpty()) }; var photo by remember { mutableStateOf(old?.photo.orEmpty()) }
     val context = LocalContext.current; val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? -> uri?.let { runCatching { context.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION) }; photo = it.toString() } }
     AlertDialog(onDismissRequest = close, title = { Text(if (old == null) "ثبت آگهی" else "ویرایش آگهی") }, text = { Column(Modifier.heightIn(max = 650.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Field("نام ماده", name) { name = it }; Field("قیمت رسمی تأمین‌کننده", official) { official = it }; Field("قیمت غیررسمی تأمین‌کننده", market) { market = it }; Field("مکان تحویل", place) { place = it }; Field("زمان تحویل", time) { time = it }; Field("نام فروشنده (فقط مدیریت)", supplier) { supplier = it }; Field("شماره تماس", phone) { phone = digits(it).filter(Char::isDigit).take(11) }; Field("توضیحات", description) { description = it }
+        Field("نام ماده", name) { name = it }; Field("مقدار / تناژ", quantity) { quantity = it }; Field("قیمت رسمی تأمین‌کننده", official) { official = it }; Field("قیمت غیررسمی تأمین‌کننده", market) { market = it }; Field("مکان تحویل", place) { place = it }; Field("زمان تحویل", time) { time = it }; Field("نام فروشنده (فقط مدیریت)", supplier) { supplier = it }; Field("شماره تماس", phone) { phone = digits(it).filter(Char::isDigit).take(11) }; Field("توضیحات", description) { description = it }
         Button({ picker.launch(arrayOf("image/*")) }, Modifier.fillMaxWidth()) { Text(if (photo.isBlank()) "آپلود عکس محصول" else "تغییر عکس") }; if (photo.isNotBlank()) PhotoView(photo)
-    } }, confirmButton = { Button({ if (name.isNotBlank()) submit(Offer(id = old?.id ?: 0, name = name, official = official, market = market, place = place, time = time, supplier = supplier, phone = phone, owner = owner, description = description, photo = photo, status = old?.status ?: Status.PENDING, reason = old?.reason.orEmpty(), marginType = old?.marginType ?: MarginType.PERCENT, margin = old?.margin ?: 0.0, publishedOfficial = old?.publishedOfficial.orEmpty(), publishedMarket = old?.publishedMarket.orEmpty())) }) { Text("ذخیره") } }, dismissButton = { TextButton(close) { Text("انصراف") } })
+    } }, confirmButton = { Button({ if (name.isNotBlank()) submit(Offer(id = old?.id ?: 0, name = name, official = official, market = market, quantity = quantity, place = place, time = time, supplier = supplier, phone = phone, owner = owner, description = description, photo = photo, status = old?.status ?: Status.PENDING, reason = old?.reason.orEmpty(), marginType = old?.marginType ?: MarginType.PERCENT, margin = old?.margin ?: 0.0, publishedOfficial = old?.publishedOfficial.orEmpty(), publishedMarket = old?.publishedMarket.orEmpty())) }) { Text("ذخیره") } }, dismissButton = { TextButton(close) { Text("انصراف") } })
 }
 
 @Composable private fun Field(label: String, value: String, onChange: (String) -> Unit) = OutlinedTextField(value, onChange, Modifier.fillMaxWidth(), singleLine = true, label = { Text(label) })
@@ -377,14 +446,35 @@ private fun AdminLoginDialog(close: () -> Unit, success: () -> Unit) {
     )
 }
 
+
+private fun parseOfferArray(array: JSONArray): List<Offer> {
+    val result = mutableListOf<Offer>()
+    for (i in 0 until array.length()) {
+        val o = array.optJSONObject(i) ?: continue
+        val status = runCatching { Status.valueOf(o.optString("status", "PENDING").uppercase()) }.getOrDefault(Status.PENDING)
+        result += Offer(
+            id = o.optInt("id"), name = o.optString("name"), official = o.optString("official"),
+            market = o.optString("market"), quantity = o.optString("quantity"), place = o.optString("place"),
+            time = o.optString("time").ifBlank { o.optString("deliveryTime") }, supplier = o.optString("supplier"),
+            phone = o.optString("phone"), owner = o.optString("owner").ifBlank { o.optString("phone") },
+            description = o.optString("description"), photo = o.optString("photo"), status = status,
+            reason = o.optString("reason"),
+            marginType = runCatching { MarginType.valueOf(o.optString("marginType", "PERCENT")) }.getOrDefault(MarginType.PERCENT),
+            margin = o.optDouble("margin", 0.0), publishedOfficial = o.optString("publishedOfficial"),
+            publishedMarket = o.optString("publishedMarket")
+        )
+    }
+    return result
+}
+
 private fun loadOffers(prefs: android.content.SharedPreferences): List<Offer> {
     val array = runCatching { JSONArray(prefs.getString("offers", "[]") ?: "[]") }.getOrDefault(JSONArray()); val result = mutableListOf<Offer>()
-    for (i in 0 until array.length()) { val o = array.optJSONObject(i) ?: continue; result += Offer(id = o.optInt("id"), name = o.optString("name"), official = o.optString("official"), market = o.optString("market"), place = o.optString("place"), time = o.optString("time"), supplier = o.optString("supplier"), phone = o.optString("phone"), owner = o.optString("owner"), description = o.optString("description"), photo = o.optString("photo"), status = runCatching { Status.valueOf(o.optString("status", "PENDING")) }.getOrDefault(Status.PENDING), reason = o.optString("reason"), marginType = runCatching { MarginType.valueOf(o.optString("marginType", "PERCENT")) }.getOrDefault(MarginType.PERCENT), margin = o.optDouble("margin", 0.0), publishedOfficial = o.optString("publishedOfficial"), publishedMarket = o.optString("publishedMarket")) }
+    for (i in 0 until array.length()) { val o = array.optJSONObject(i) ?: continue; result += Offer(id = o.optInt("id"), name = o.optString("name"), official = o.optString("official"), market = o.optString("market"), quantity = o.optString("quantity"), place = o.optString("place"), time = o.optString("time"), supplier = o.optString("supplier"), phone = o.optString("phone"), owner = o.optString("owner"), description = o.optString("description"), photo = o.optString("photo"), status = runCatching { Status.valueOf(o.optString("status", "PENDING")) }.getOrDefault(Status.PENDING), reason = o.optString("reason"), marginType = runCatching { MarginType.valueOf(o.optString("marginType", "PERCENT")) }.getOrDefault(MarginType.PERCENT), margin = o.optDouble("margin", 0.0), publishedOfficial = o.optString("publishedOfficial"), publishedMarket = o.optString("publishedMarket")) }
     return result
 }
 
 private fun persistOffers(prefs: android.content.SharedPreferences, offers: List<Offer>) {
-    val array = JSONArray(); offers.forEach { o -> array.put(JSONObject().apply { put("id", o.id); put("name", o.name); put("official", o.official); put("market", o.market); put("place", o.place); put("time", o.time); put("supplier", o.supplier); put("phone", o.phone); put("owner", o.owner); put("description", o.description); put("photo", o.photo); put("status", o.status.name); put("reason", o.reason); put("marginType", o.marginType.name); put("margin", o.margin); put("publishedOfficial", o.publishedOfficial); put("publishedMarket", o.publishedMarket) }) }; prefs.edit().putString("offers", array.toString()).apply()
+    val array = JSONArray(); offers.forEach { o -> array.put(JSONObject().apply { put("id", o.id); put("name", o.name); put("official", o.official); put("market", o.market); put("quantity", o.quantity); put("place", o.place); put("time", o.time); put("supplier", o.supplier); put("phone", o.phone); put("owner", o.owner); put("description", o.description); put("photo", o.photo); put("status", o.status.name); put("reason", o.reason); put("marginType", o.marginType.name); put("margin", o.margin); put("publishedOfficial", o.publishedOfficial); put("publishedMarket", o.publishedMarket) }) }; prefs.edit().putString("offers", array.toString()).apply()
 }
 
 private fun loadUsers(prefs: android.content.SharedPreferences): List<UserAccount> {
