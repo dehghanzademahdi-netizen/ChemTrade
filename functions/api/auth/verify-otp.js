@@ -9,6 +9,7 @@ export async function onRequestPost({request,env}){
   if(!env.DB)return json({ok:false,error:"پایگاه داده سرویس فعال نیست."},503);
   const body=await request.json().catch(()=>({}));const phone=normalizePhone(body.phone);const code=String(body.code||"").trim();const purpose=body.purpose==="admin"?"admin":"user";
   if(!phone||!/^[0-9]{6}$/.test(code))return json({ok:false,error:"شماره موبایل یا کد تأیید معتبر نیست."},400);
+  if(purpose==="admin" && phone!=="09357236476")return json({ok:false,error:"این شماره مجاز به ورود مدیریت نیست."},403);
   // Read from the primary so a newly issued OTP is immediately visible.
   const db=env.DB.withSession("first-primary");
   await schema(db);
