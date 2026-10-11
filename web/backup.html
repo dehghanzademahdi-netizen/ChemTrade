@@ -28,7 +28,7 @@ async function downloadBackup(){
   // Validate the payload before offering a local file.
   const checked=JSON.parse(text);
   if(!checked.ok||!checked.product||!checked.createdAt)throw new Error('پشتیبان برگشتی کامل و معتبر نیست؛ فایلی ذخیره نشد.');
-  const blob=new Blob(['\\uFEFF',text],{type:'application/json;charset=utf-8'});
+  const blob=new Blob(['\uFEFF',text],{type:'application/json;charset=utf-8'});
   const url=URL.createObjectURL(blob),a=document.createElement('a');
   const stamp=new Date().toISOString().replace(/[:.]/g,'-');
   a.href=url;a.download='ChemLink-backup-'+stamp+'.json';a.style.display='none';
@@ -36,11 +36,11 @@ async function downloadBackup(){
   // Do not revoke immediately; some browsers otherwise create a broken/empty download.
   setTimeout(()=>URL.revokeObjectURL(url),60000);
   $('status').textContent='درخواست دانلود انجام شد. در پوشه Downloads دنبال فایل ChemLink-backup با پسوند .json بگردید. برای بازکردن، روی فایل راست‌کلیک کنید و Open with > Notepad را بزنید. این فایل داده است، نه برنامه.';
- }catch(e){$('status').textContent='پشتیبان ساخته نشد: '+(e.message||'خطای نامشخص')+'\\nهیچ فایل معتبری در این تلاش دانلود نشده است.'}
+ }catch(e){$('status').textContent='پشتیبان ساخته نشد: '+(e.message||'خطای نامشخص')+'\nهیچ فایل معتبری در این تلاش دانلود نشده است.'}
  finally{b.disabled=false}
 }
 $('send').onclick=async()=>{const b=$('send');b.disabled=true;$('status').textContent='در حال ارسال کد...';try{await api('/api/auth/send-otp',{method:'POST',body:JSON.stringify({phone:'09357236476',purpose:'admin'})});$('verifyArea').hidden=false;$('status').textContent='کد ارسال شد. کد پیامک‌شده را وارد کنید.';$('code').focus()}catch(e){$('status').textContent=e.message}finally{b.disabled=false}};
-$('verify').onclick=async()=>{const b=$('verify');b.disabled=true;try{const d=await api('/api/auth/verify-otp',{method:'POST',body:JSON.stringify({phone:'09357236476',code:$('code').value.replace(/\\D/g,''),purpose:'admin'})});token=d.token;$('verifyArea').hidden=true;$('backupArea').hidden=false;$('send').hidden=true;
+$('verify').onclick=async()=>{const b=$('verify');b.disabled=true;try{const d=await api('/api/auth/verify-otp',{method:'POST',body:JSON.stringify({phone:'09357236476',code:$('code').value.replace(/\D/g,''),purpose:'admin'})});token=d.token;$('verifyArea').hidden=true;$('backupArea').hidden=false;$('send').hidden=true;
  $('status').textContent='ورود مدیریت تأیید شد.';
  // Ask immediately after admin login; cancel leaves the manual backup button available.
  if(window.confirm('ورود مدیریت انجام شد. همین حالا نسخه پشتیبان ChemLink روی این کامپیوتر ذخیره شود؟')) await downloadBackup();
