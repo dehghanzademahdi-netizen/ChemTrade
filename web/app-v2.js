@@ -58,9 +58,13 @@ async function verifySmsLogin(){
    $('phone').closest('label').style.display='none';$('otpWrap').style.display='none';$('recaptcha-container').style.display='none';
    if(window.confirm('ورود مدیریت تأیید شد. همین حالا نسخه پشتیبان ChemLink روی این کامپیوتر ذخیره شود؟')){
     b.textContent='در حال ساخت پشتیبان...';
-    await downloadAdminBackup(data.token);
-    $('modalText').textContent='فایل پشتیبان ساخته شد. در پوشه Downloads فایل ChemLink-backup با پسوند .json را بررسی کن. برای دیدن محتوا می‌توانی آن را با Notepad باز کنی.';
-   }else $('modalText').textContent='پشتیبان ذخیره نشد. برای دانلود بعدی از صفحه پشتیبان‌گیری مدیریت استفاده کن.';
+    try{
+     await downloadAdminBackup(data.token);
+     $('modalText').textContent='فایل پشتیبان ساخته شد. در پوشه Downloads فایل ChemLink-backup با پسوند .json را بررسی کن. برای دیدن محتوا می‌توانی آن را با Notepad باز کنی.';
+    }catch(backupError){
+     $('modalText').textContent='ورود مدیریت انجام شد، اما دانلود پشتیبان ناموفق بود: '+(backupError.message||'خطای نامشخص')+'\\nبرای تلاش مجدد، صفحه پشتیبان‌گیری مدیریت را باز کن.';
+    }
+   }else $('modalText').textContent='پشتیبان ذخیره نشد. هر وقت خواستی از صفحه پشتیبان‌گیری مدیریت دانلود کن.';
    b.textContent='بستن';b.disabled=false;b.onclick=hideLogin;
    return;
   }
