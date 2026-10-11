@@ -18,7 +18,7 @@ async function readOffers(){
 async function writeOffers(offers){
  const r=await fetch(FIREBASE_ROOT+"/chemlink/offers.json",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(offers)});
  if(!r.ok)throw new Error("فضای ابری ذخیره تغییرات را نپذیرفت (HTTP "+r.status+").");
- const verify=await fetch(FIREBASE_ROOT+"/chemlink/offers.json?verify="+Date.now(),{cache:"no-store"});
+ const verify=await fetch(FIREBASE_ROOT+"/chemlink/offers.json",{cache:"no-store",headers:{"cache-control":"no-cache","pragma":"no-cache"}});
  if(!verify.ok)throw new Error("تغییر ذخیره شد اما بررسی نهایی فضای ابری ناموفق بود.");
  const data=await verify.json(),saved=Array.isArray(data)?data:(data&&typeof data==="object"?Object.values(data):[]);
  if(saved.length!==offers.length)throw new Error("تعداد آگهی‌های ذخیره‌شده با فهرست مدیریت تطابق ندارد.");
