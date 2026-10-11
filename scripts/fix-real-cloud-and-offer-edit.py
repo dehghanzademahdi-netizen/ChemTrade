@@ -41,10 +41,12 @@ e.write_text(s, encoding='utf-8')
 # MainActivity: ensure every offer save is immediately pushed to Firebase.
 m = root / 'MainActivity.kt'
 s = m.read_text(encoding='utf-8')
-if 'val scope = rememberCoroutineScope()' not in s:
-    main_start = s.find('private fun MainScreen')
-    if main_start < 0:
-        raise SystemExit('MainScreen marker not found')
+main_start = s.find('private fun MainScreen')
+if main_start < 0:
+    raise SystemExit('MainScreen marker not found')
+main_end = s.find('\n@Composable', main_start + 1)
+main_block = s[main_start:main_end if main_end >= 0 else len(s)]
+if 'val scope = rememberCoroutineScope()' not in main_block:
     needle = 'val context = LocalContext.current'
     context_pos = s.find(needle, main_start)
     if context_pos < 0:
