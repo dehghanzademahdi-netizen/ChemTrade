@@ -312,23 +312,69 @@ private fun MyOffersPage(modifier: Modifier, offers: List<Offer>, phone: String,
 
 @Composable
 private fun AdminLoginDialog(close: () -> Unit, success: () -> Unit) {
-    val context = LocalContext.current; var step by remember { mutableIntStateOf(0) }; var password by remember { mutableStateOf("") }; var code by remember { mutableStateOf("") }; var expected by remember { mutableStateOf("") }; var message by remember { mutableStateOf("") }; var error by remember { mutableStateOf("") }; var sending by remember { mutableStateOf(false) }
-    fun sendAdminOtp() {
-        val otp = SecureRandom().nextInt(900000).plus(100000).toString()
-        try {
-            @Suppress("DEPRECATION") val manager = SmsManager.getDefault(); val sms = "ChemLink | کد ورود مدیریت: $otp\nاین کد را در اختیار دیگران قرار ندهید."; val parts = manager.divideMessage(sms)
-            if (parts.size == 1) manager.sendTextMessage(ADMIN_PHONE, null, sms, null, null) else manager.sendMultipartTextMessage(ADMIN_PHONE, null, parts, null, null)
-            expected = otp; step = 2; message = "کد ورود به شماره مدیریت ارسال شد."; error = ""
-        } catch (_: Exception) { error = "ارسال پیامک ناموفق بود. مجوز SMS و سیم‌کارت را بررسی کنید." }
-        sending = false
-    }
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> if (granted) sendAdminOtp() else { sending = false; error = "مجوز ارسال پیامک داده نشد." } }
-    AlertDialog(onDismissRequest = close, title = { Text(if (step == 0) "ورود مدیریت" else "تأیید دو مرحله‌ای مدیریت") }, text = { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        if (step == 0) { Text("دسترسی مدیریت محافظت شده است."); OutlinedTextField(password, { password = digits(it).take(12) }, Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation(), label = { Text("رمز مدیریت") }) }
-        else if (step == 1) Text("رمز صحیح است. برای مرحله دوم کد پیامکی را ارسال کنید.")
-        else { Text("کد ۶ رقمی ارسال‌شده به شماره مدیریت را وارد کنید."); OutlinedTextField(code, { code = digits(it).filter(Char::isDigit).take(6) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("کد پیامکی") }) }
-        if (message.isNotBlank()) Text(message, color = Green); if (error.isNotBlank()) Text(error, color = Red)
-    } }, confirmButton = { Button(enabled = !sending, onClick = { when (step) { 0 -> if (hash(password) == ADMIN_HASH) { step = 1; error = "" } else error = "رمز مدیریت صحیح نیست."; 1 -> { sending = true; if (ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED) sendAdminOtp() else permissionLauncher.launch(Manifest.permission.SEND_SMS) }; else -> if (code == expected && expected.isNotBlank()) success() else error = "کد پیامکی صحیح نیست." } }) { Text(when (step) { 0 -> "ادامه"; 1 -> "ارسال کد پیامکی"; else -> "تأیید و ورود" }) } }, dismissButton = { TextButton(close) { Text("انصراف") } })
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var step by remember { mutableIntStateOf(0) }
+    var password by remember { mutableStateOf("") }
+    var code by remember { mutableStateOf("") }
+    var message by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = close,
+        title = { Text(if (step == 0) "ورود مدیریت" else "تأیید پیامکی مدیریت") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (step == 0) {
+                    Text("ابتدا رمز مدیریت را وارد کنید.")
+                    OutlinedTextField(password, { password = digits(it).take(12) }, Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation(), label = { Text("رمز مدیریت") })
+                } else {
+                    Text("کد تأیید به شماره مدیریت ارسال شده است.")
+                    OutlinedTextField(code, { code = digits(it).filter(Char::isDigit).take(6) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("کد ۶ رقمی پیامک‌شده") })
+                }
+                if (message.isNotBlank()) Text(message, color = Green)
+                if (error.isNotBlank()) Text(error, color = Red)
+            }
+        },
+        confirmButton = {
+            Button(enabled = !busy, onClick = {
+                if (step == 0) {
+                    if (hash(password) != ADMIN_HASH) {
+                        error = "رمز مدیریت صحیح نیست."
+                    } else {
+                        scope.launch {
+                            busy = true; error = ""; message = "در حال ارسال کد مدیریت..."
+                            try {
+                                ChemLinkAuthApi.sendOtp(ADMIN_PHONE, "admin")
+                                step = 1
+                                message = "کد تأیید ارسال شد."
+                            } catch (e: Exception) {
+                                error = e.message ?: "ارسال کد مدیریت انجام نشد."
+                            } finally { busy = false }
+                        }
+                    }
+                } else {
+                    if (!Regex("^[0-9]{6}$").matches(code)) {
+                        error = "کد ۶ رقمی را وارد کنید."
+                    } else {
+                        scope.launch {
+                            busy = true; error = ""; message = "در حال تأیید کد..."
+                            try {
+                                val auth = ChemLinkAuthApi.verifyOtp(ADMIN_PHONE, code, "admin")
+                                context.getSharedPreferences("chemlink", Context.MODE_PRIVATE).edit()
+                                    .putString("adminAuthToken", auth.getString("token")).apply()
+                                success()
+                            } catch (e: Exception) {
+                                error = e.message ?: "تأیید کد مدیریت انجام نشد."
+                            } finally { busy = false }
+                        }
+                    }
+                }
+            }) { Text(if (busy) "لطفاً صبر کنید..." else if (step == 0) "ادامه" else "تأیید و ورود") }
+        },
+        dismissButton = { TextButton(close) { Text("انصراف") } }
+    )
 }
 
 private fun loadOffers(prefs: android.content.SharedPreferences): List<Offer> {
