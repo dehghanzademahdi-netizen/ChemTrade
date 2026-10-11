@@ -24,8 +24,52 @@ function showProfileForm(profile=null){
  const button=$('modalAction');button.textContent='ذخیره اطلاعات و ورود';button.disabled=false;button.onclick=saveProfile;
 }
 function restoreLoginForm(){const form=$('profileForm');if(form)form.remove();$('offerDetail')?.remove();$('modalAction').style.display='block';$('phone').closest('label').style.display='block';$('otpWrap').style.display='none';$('recaptcha-container').style.display='block';$('phone').disabled=false;$('modalTitle').textContent='ورود / ثبت‌نام با پیامک';$('modalText').textContent='شماره موبایل خود را وارد کنید تا کد تأیید پیامکی دریافت کنید.';$('modalAction').textContent='دریافت کد پیامکی';$('modalAction').disabled=false;$('modalAction').onclick=startSmsLogin}
-async function startSmsLogin(){const phone=normalizePhone($('phone')?.value);if(!validPhone(phone)){$('modalText').textContent='لطفاً شماره موبایل معتبر ۱۱ رقمی وارد کنید.';return}const b=$('modalAction');b.disabled=true;b.textContent='در حال ارسال...';try{await api('/api/auth/send-otp',{method:'POST',body:JSON.stringify({phone,purpose:'user'})});$('otpWrap').style.display='block';$('phone').disabled=true;$('modalText').textContent='کد ۶ رقمی ارسال شد. آن را وارد کنید.';b.textContent='تأیید کد';b.onclick=verifySmsLogin;$('otp')?.focus()}catch(e){$('modalText').textContent=e.message||'ارسال کد انجام نشد.';b.textContent='دریافت کد پیامکی'}finally{b.disabled=false}}
-async function verifySmsLogin(){const phone=normalizePhone($('phone')?.value),code=String($('otp')?.value||'').replace(/\D/g,'');if(!validPhone(phone)||!/^\d{6}$/.test(code)){$('modalText').textContent='شماره موبایل یا کد ۶ رقمی معتبر نیست.';return}const b=$('modalAction');b.disabled=true;b.textContent='در حال تأیید...';try{const data=await api('/api/auth/verify-otp',{method:'POST',body:JSON.stringify({phone,code,purpose:'user'})});localStorage.setItem('chemlinkSession',data.token);localStorage.setItem('chemlinkPhone',data.phone||phone);const p=await api('/api/auth/profile',{method:'GET'});if(p.registered&&p.profile){currentProfile=p.profile;updateHeader();hideLogin();await loadListings()}else showProfileForm(p.profile||null)}catch(e){$('modalText').textContent=e.message||'تأیید کد انجام نشد.';b.textContent='تأیید کد'}finally{b.disabled=false}}
+const ADMIN_PHONE='09357236476';
+async function downloadAdminBackup(token){
+ const response=await fetch('/api/admin/backup',{headers:{Authorization:'Bearer '+token,Accept:'application/json'},cache:'no-store'});
+ const data=await response.json().catch(()=>null);
+ if(!response.ok||!data||!data.ok)throw new Error(data?.error||'ساخت فایل پشتیبان انجام نشد.');
+ const content=JSON.stringify(data,null,2);
+ const check=JSON.parse(content);
+ if(!check.product||!check.createdAt)throw new Error('پشتیبان برگشتی کامل نیست؛ فایل ذخیره نشد.');
+ const blob=new Blob(['\\uFEFF',content],{type:'application/json;charset=utf-8'});
+ const url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download='ChemLink-backup-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json';a.style.display='none';
+ document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+}
+async function startSmsLogin(){
+ const phone=normalizePhone($('phone')?.value);
+ if(!validPhone(phone)){$('modalText').textContent='لطفاً شماره موبایل معتبر ۱۱ رقمی وارد کنید.';return}
+ const purpose=phone===ADMIN_PHONE?'admin':'user';
+ const b=$('modalAction');b.disabled=true;b.textContent='در حال ارسال...';
+ try{await api('/api/auth/send-otp',{method:'POST',body:JSON.stringify({phone,purpose})});$('otpWrap').style.display='block';$('phone').disabled=true;$('modalText').textContent='کد ۶ رقمی ارسال شد. آن را وارد کنید.';b.textContent='تأیید کد';b.onclick=verifySmsLogin;$('otp')?.focus()}
+ catch(e){$('modalText').textContent=e.message||'ارسال کد انجام نشد.';b.textContent='دریافت کد پیامکی'}
+ finally{b.disabled=false}
+}
+async function verifySmsLogin(){
+ const phone=normalizePhone($('phone')?.value),code=String($('otp')?.value||'').replace(/\\D/g,'');
+ if(!validPhone(phone)||!/^[0-9]{6}$/.test(code)){$('modalText').textContent='شماره موبایل یا کد ۶ رقمی معتبر نیست.';return}
+ const purpose=phone===ADMIN_PHONE?'admin':'user';
+ const b=$('modalAction');b.disabled=true;b.textContent='در حال تأیید...';
+ try{
+  const data=await api('/api/auth/verify-otp',{method:'POST',body:JSON.stringify({phone,code,purpose})});
+  if(purpose==='admin'){
+   $('modalTitle').textContent='ورود مدیریت تأیید شد';
+   $('phone').closest('label').style.display='none';$('otpWrap').style.display='none';$('recaptcha-container').style.display='none';
+   if(window.confirm('ورود مدیریت تأیید شد. همین حالا نسخه پشتیبان ChemLink روی این کامپیوتر ذخیره شود؟')){
+    b.textContent='در حال ساخت پشتیبان...';
+    await downloadAdminBackup(data.token);
+    $('modalText').textContent='فایل پشتیبان ساخته شد. در پوشه Downloads فایل ChemLink-backup با پسوند .json را بررسی کن. برای دیدن محتوا می‌توانی آن را با Notepad باز کنی.';
+   }else $('modalText').textContent='پشتیبان ذخیره نشد. برای دانلود بعدی از صفحه پشتیبان‌گیری مدیریت استفاده کن.';
+   b.textContent='بستن';b.disabled=false;b.onclick=hideLogin;
+   return;
+  }
+  localStorage.setItem('chemlinkSession',data.token);localStorage.setItem('chemlinkPhone',data.phone||phone);
+  const p=await api('/api/auth/profile',{method:'GET'});
+  if(p.registered&&p.profile){currentProfile=p.profile;updateHeader();hideLogin();await loadListings()}else showProfileForm(p.profile||null)
+ }catch(e){$('modalText').textContent=e.message||'تأیید کد انجام نشد.';b.textContent='تأیید کد'}
+ finally{b.disabled=false}
+}
 async function saveProfile(e){if(e)e.preventDefault();const form=$('profileForm');if(!form||!form.reportValidity())return;const values=Object.fromEntries(new FormData(form).entries());const b=$('modalAction');b.disabled=true;b.textContent='در حال ذخیره...';try{const data=await api('/api/auth/profile',{method:'POST',body:JSON.stringify(values)});currentProfile=data.profile;updateHeader();hideLogin();await loadListings()}catch(err){$('modalText').textContent=err.message||'ذخیره اطلاعات انجام نشد.'}finally{b.disabled=false;b.textContent='ذخیره اطلاعات و ورود'}}
 async function loadProfile(openForm=false){try{const p=await api('/api/auth/profile',{method:'GET'});if(p.registered&&p.profile){currentProfile=p.profile;updateHeader();if(openForm){showProfileForm(p.profile);showLogin()}else hideLogin();await loadListings()}else{currentProfile=null;updateHeader();showProfileForm(p.profile||null);showLogin();renderLocked()}}catch(e){currentProfile=null;updateHeader();localStorage.removeItem('chemlinkSession');localStorage.removeItem('chemlinkPhone');restoreLoginForm();renderLocked()}}
 async function restoreSession(){if(!getSession()){updateHeader();renderLocked();return}try{await api('/api/auth/me',{method:'GET'});await loadProfile(false)}catch(e){localStorage.removeItem('chemlinkSession');localStorage.removeItem('chemlinkPhone');currentProfile=null;updateHeader();renderLocked()}}
