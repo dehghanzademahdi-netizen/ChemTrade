@@ -52,7 +52,7 @@ e.write_text(s, encoding='utf-8')
 # Pull remote state before showing offers. Only push after a successful pull so a
 # temporary network failure can never overwrite good cloud data with an empty cache.
 s = m.read_text(encoding='utf-8')
-if 'CloudStore.pull(prefs)' not in s:
+if 'CloudStore.pull(prefs)' not in s and 'ChemLinkOffersApi' not in s:
     marker = '    Scaffold(\n'
     if marker not in s:
         marker = 'Scaffold(\n'
@@ -73,6 +73,6 @@ m.write_text(s, encoding='utf-8')
 entry = e.read_text(encoding='utf-8')
 main = m.read_text(encoding='utf-8')
 assert 'CloudStore.loadUser' in entry, 'CloudStore.loadUser hook missing from EntryActivity'
-assert 'CloudStore.pull(prefs)' in main, 'CloudStore.pull hook missing from MainActivity'
-assert 'CloudStore.push(prefs)' in main, 'CloudStore.push hook missing from MainActivity'
+assert 'ChemLinkOffersApi.adminOffers' in main, 'shared cloud admin offers API missing from MainActivity'
+assert 'ChemLinkOffersApi.createOrUpdate' in main, 'shared cloud user offers API missing from MainActivity'
 print('CLOUD ACCOUNT RESTORE + SAFE SYNC HOOKS VERIFIED')
