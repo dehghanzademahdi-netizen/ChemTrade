@@ -12,8 +12,8 @@ android {
         applicationId = "com.dehghanzadeh.chemtrade"
         minSdk = 26
         targetSdk = 35
-        versionCode = 10
-        versionName = "0.9.1"
+        versionCode = 11
+        versionName = "0.9.2"
         val firebaseDbUrl = (project.findProperty("chemlinkFirebaseDbUrl") as String?)?.takeIf { it.isNotBlank() }
             ?: "https://chemlink-8909b-default-rtdb.firebaseio.com"
         buildConfigField("String", "CHEMLINK_FIREBASE_DB_URL", "\"$firebaseDbUrl\"")
