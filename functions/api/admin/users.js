@@ -1,5 +1,21 @@
 function json(data,status=200){return new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store","pragma":"no-cache"}});}
 async function sha256(value){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(String(value)));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("");}
+const FIREBASE_ROOT="https://chemlink-8909b-default-rtdb.firebaseio.com";
+function canonicalPhone(value){let p=String(value||"").replace(/\D/g,"");if(p.startsWith("0098"))p=p.slice(2);if(p.startsWith("98")&&p.length===12)p="0"+p.slice(2);if(p.length===10&&p.startsWith("9"))p="0"+p;return p;}
+async function legacyFirebaseUsers(){
+ try{
+  const [a,b]=await Promise.all([fetch(FIREBASE_ROOT+"/chemlink/users.json",{cache:"no-store"}),fetch(FIREBASE_ROOT+"/chemlink/usersByPhone.json",{cache:"no-store"})]);
+  const [users,byPhone]=await Promise.all([a.ok?a.json():[],b.ok?b.json():{}]);
+  const rows=Array.isArray(users)?users:(users&&typeof users==="object"?Object.values(users):[]);
+  if(byPhone&&typeof byPhone==="object"&&!Array.isArray(byPhone))rows.push(...Object.values(byPhone));
+  const map=new Map();
+  for(const u of rows){if(!u||typeof u!=="object")continue;const phone=canonicalPhone(u.phone||u.mobile||u.phoneNumber||u.mobileNumber);if(!/^09\d{9}$/.test(phone))continue;
+   const rawRole=String(u.role||u.type||u.accountType||u.userType||"").toLowerCase();
+   map.set(phone,{phone,fullName:String(u.fullName||u.full_name||u.name||u.fullname||u.userName||u.username||""),companyName:String(u.companyName||u.company_name||u.company||u.organization||u.businessName||""),role:(rawRole.includes("supplier")||rawRole.includes("فروش")||rawRole.includes("تامین")||rawRole.includes("تأمین"))?"supplier":(rawRole?"buyer":""),city:String(u.city||u.location||u.province||""),businessType:String(u.businessType||u.business_type||u.activity||u.field||""),neededMaterials:String(u.neededMaterials||u.needed_materials||u.materials||""),address:String(u.address||""),landline:String(u.landline||u.telephone||""),createdAt:Number(u.createdAt||u.created_at||0),updatedAt:Number(u.updatedAt||u.updated_at||0),profileComplete:Boolean((u.fullName||u.full_name||u.name)&&(u.companyName||u.company_name||u.company))});
+  }
+  return [...map.values()];
+ }catch(e){console.error("legacy Firebase users",e);return [];}
+}
 async function adminSession(request,env){
  const auth=request.headers.get("authorization")||"",token=auth.startsWith("Bearer ")?auth.slice(7):"";
  if(!token||!env.DB)return null;
@@ -22,10 +38,12 @@ export async function onRequestGet({request,env}){
   await ensureProfileSchema(db);
   const profiles=await db.prepare("SELECT phone,full_name,company_name,role,city,business_type,needed_materials,address,landline,created_at,updated_at FROM user_profiles ORDER BY created_at DESC").all();
   const sessions=await db.prepare("SELECT phone,MAX(created_at) AS last_login,MAX(expires_at) AS session_expires FROM sessions WHERE purpose='user' GROUP BY phone").all();
-  const byPhone=new Map((profiles.results||[]).map(p=>[p.phone,mapProfile(p)]));
+  const byPhone=new Map((await legacyFirebaseUsers()).map(p=>[p.phone,p]));
+  for(const p of profiles.results||[])byPhone.set(p.phone,{...(byPhone.get(p.phone)||{}),...mapProfile(p)});
   for(const s of sessions.results||[]){
-   const p=byPhone.get(s.phone)||{phone:s.phone,fullName:"",companyName:"",role:"",city:"",businessType:"",neededMaterials:"",address:"",landline:"",createdAt:0,updatedAt:0,profileComplete:false};
-   p.lastLogin=s.last_login||0;p.sessionExpires=s.session_expires||0;byPhone.set(s.phone,p);
+   const phone=canonicalPhone(s.phone);
+   const p=byPhone.get(phone)||{phone,fullName:"",companyName:"",role:"",city:"",businessType:"",neededMaterials:"",address:"",landline:"",createdAt:0,updatedAt:0,profileComplete:false};
+   p.lastLogin=s.last_login||0;p.sessionExpires=s.session_expires||0;byPhone.set(phone,p);
   }
   return json({ok:true,users:[...byPhone.values()].sort((a,b)=>Number(b.updatedAt||b.createdAt||b.lastLogin||0)-Number(a.updatedAt||a.createdAt||a.lastLogin||0))});
  }catch(e){console.error("admin users GET",e);return json({ok:false,error:"دریافت فهرست کاربران انجام نشد."},500);}
