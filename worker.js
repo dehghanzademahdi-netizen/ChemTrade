@@ -13,7 +13,7 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname === "/api/health" && request.method === "GET") {
-      return json({ok:true,worker:"chemlink",build:"otp-profile-flow-2-route-diagnostic",dbBinding:Boolean(env.DB),availableBindings:Object.keys(env),smsConfigured:Boolean(env.SMS_IR_API_KEY),host:url.host});
+      return json({ok:true,worker:"chemlink",build:"otp-profile-flow-3-db-repair",dbBinding:Boolean(env.DB),availableBindings:Object.keys(env),smsConfigured:Boolean(env.SMS_IR_API_KEY),host:url.host});
     }
     if (url.pathname === "/api/auth/send-otp" && request.method === "POST") return sendOtp({request,env,ctx});
     if (url.pathname === "/api/auth/verify-otp" && request.method === "POST") return verifyOtp({request,env,ctx});
