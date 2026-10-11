@@ -6,7 +6,19 @@ m = root / 'MainActivity.kt'
 
 # Always resolve an existing account from Firebase after SMS verification.
 s = e.read_text(encoding='utf-8')
-if 'CloudStore.loadUser' not in s:
+if 'CloudStore.loadUser' not in s and 'ChemLinkAuthApi' in s:
+    marker = 'val legacy = loadRegisteredUser(context, phone)'
+    replacement = '''val remote = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        CloudStore.loadUser(context.getSharedPreferences("chemlink", Context.MODE_PRIVATE), phone)
+                    }
+                    if (remote != null) {
+                        saveRegisteredUser(context, EntryUser(phone, remote.optString("type", "Consumer"), remote.optString("name"), remote.optString("company"), remote.optString("address"), remote.optString("city"), remote.optString("landline")))
+                    }
+                    val legacy = loadRegisteredUser(context, phone)'''
+    if marker not in s:
+        raise SystemExit('EntryActivity shared-auth migration marker not found')
+    s = s.replace(marker, replacement, 1)
+elif 'CloudStore.loadUser' not in s:
     marker = 'val existing = loadRegisteredUser(context, phone)'
     if marker not in s:
         raise SystemExit('EntryActivity login marker not found')
