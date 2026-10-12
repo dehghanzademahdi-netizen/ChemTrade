@@ -33,7 +33,43 @@ import org.json.JSONObject
 class EntryActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { ChemLinkEntryApp() }
+        val prefs = getSharedPreferences("chemlink", Context.MODE_PRIVATE)
+        val adminToken = prefs.getString("adminAuthToken", "").orEmpty()
+        val userToken = prefs.getString("authToken", "").orEmpty()
+        val savedToken = adminToken.ifBlank { userToken }
+        if (savedToken.isBlank()) {
+            setContent { ChemLinkEntryApp() }
+            return
+        }
+        setContent {
+            var checkingSavedSession by remember { mutableStateOf(true) }
+            LaunchedEffect(Unit) {
+                try {
+                    val session = ChemLinkAuthApi.me(savedToken)
+                    val purpose = session.optString("purpose")
+                    val expectedPurpose = if (adminToken.isNotBlank()) "admin" else "user"
+                    if (purpose == expectedPurpose) {
+                        startActivity(Intent(this@EntryActivity, MainActivity::class.java))
+                        finish()
+                    } else {
+                        prefs.edit().remove("authToken").remove("adminAuthToken").remove("chemlinkSession").apply()
+                        checkingSavedSession = false
+                    }
+                } catch (_: Exception) {
+                    prefs.edit().remove("authToken").remove("adminAuthToken").remove("chemlinkSession").apply()
+                    checkingSavedSession = false
+                }
+            }
+            if (checkingSavedSession) {
+                MaterialTheme {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                }
+            } else {
+                ChemLinkEntryApp()
+            }
+        }
     }
 }
 
