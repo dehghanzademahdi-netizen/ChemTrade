@@ -16,6 +16,8 @@ internal object ChemLinkOffersApi {
                 connectTimeout = 20000
                 readTimeout = 20000
                 setRequestProperty("Accept", "application/json")
+                setRequestProperty("Cache-Control", "no-cache, no-store, max-age=0")
+                setRequestProperty("Pragma", "no-cache")
                 if (body != null) {
                     doOutput = true
                     setRequestProperty("Content-Type", "application/json; charset=utf-8")
@@ -37,10 +39,10 @@ internal object ChemLinkOffersApi {
             }
         }
 
-    suspend fun publicOffers() = request("/offers")
-    suspend fun myOffers(token: String) = request("/offers?mine=1", token = token)
+    suspend fun publicOffers() = request("/offers?_=" + System.currentTimeMillis())
+    suspend fun myOffers(token: String) = request("/offers?mine=1&_=" + System.currentTimeMillis(), token = token)
     suspend fun createOrUpdate(token: String, offer: JSONObject) = request("/offers", "POST", token, offer)
-    suspend fun adminOffers(token: String) = request("/admin/offers", token = token)
+    suspend fun adminOffers(token: String) = request("/admin/offers?_=" + System.currentTimeMillis(), token = token)
     suspend fun adminCreate(token: String, offer: JSONObject) = request("/admin/offers", "POST", token, offer)
     suspend fun updateAdmin(token: String, id: String, status: String, marginType: String = "PERCENT", margin: Double = 0.0, reason: String = "") =
         request("/admin/offers", "POST", token, JSONObject().put("id", id).put("status", status).put("marginType", marginType).put("margin", margin).put("reason", reason))
