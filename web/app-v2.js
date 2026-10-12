@@ -16,7 +16,8 @@ function inferCategory(name){const n=String(name||'').toLowerCase();const groups
 ['رزین، رنگ و پلیمر',['رزین','تینر','تیتان','مستربچ','کربن بلک','پلی استر','اپوکسی']]];
 for(const [group,terms] of groups)if(terms.some(t=>n.includes(t)))return group;return 'سایر مواد';
 }
-function normalizePhone(v){v=(v||'').replace(/[\s-]/g,'');return v.startsWith('+98')?'0'+v.slice(3):v}
+function toEnglishDigits(v){return String(v||'').replace(/[۰-۹٠-٩]/g,ch=>{const n=ch.charCodeAt(0);return String(n>=0x06F0&&n<=0x06F9?n-0x06F0:n-0x0660)})}
+function normalizePhone(v){v=toEnglishDigits(v).replace(/[\s\u200c()-]/g,'');return v.startsWith('+98')?'0'+v.slice(3):v}
 function validPhone(v){return /^09\d{9}$/.test(v)}
 async function api(path,options={}){const headers={'Content-Type':'application/json',...(options.headers||{})};if(getSession())headers.Authorization='Bearer '+getSession();let r;try{r=await fetch(path,{...options,headers,cache:'no-store'})}catch(e){throw new TypeError('ارتباط با سرور برقرار نشد؛ اتصال اینترنت یا مسیر API در دسترس نیست.')}const data=await r.json().catch(()=>({}));if(!r.ok||!data.ok)throw new Error(data.error||('خطای سرور ('+r.status+').'));return data}
 async function loadListings(options={}){const grid=$('listingGrid');if(!grid)return;try{const data=await api('/api/offers?_='+Date.now(),{method:'GET'});listings=(data.offers||[]).map(x=>({id:x.id,kind:x.kind||'sell',name:x.name||'',category:x.category||inferCategory(x.name),official:x.official||'',market:x.market||'',quantity:x.quantity||'',deliveryTime:x.deliveryTime||'',place:x.place||'',time:x.createdAt&&Number.isFinite(Number(x.createdAt))?new Date(Number(x.createdAt)).toLocaleDateString('fa-IR'):'',supplier:x.supplier||'',phone:x.phone||'',description:x.description||'',photo:x.photo||''}));renderListings(listings);return data}catch(e){grid.innerHTML='<div class="empty">دریافت آگهی‌های بازار آنلاین انجام نشد. صفحه را دوباره بارگذاری کنید.</div>';if(options.throwOnError)throw e;return null}}
@@ -58,7 +59,7 @@ async function startSmsLogin(){
  finally{b.disabled=false}
 }
 async function verifySmsLogin(){
- const phone=normalizePhone($('phone')?.value),code=String($('otp')?.value||'').replace(/\D/g,'');
+ const phone=normalizePhone($('phone')?.value),code=toEnglishDigits($('otp')?.value||'').replace(/\D/g,'');
  if(!validPhone(phone)||!/^[0-9]{6}$/.test(code)){$('modalText').textContent='شماره موبایل یا کد ۶ رقمی معتبر نیست.';return}
  const purpose=phone===ADMIN_PHONE?'admin':'user';
  const b=$('modalAction');b.disabled=true;b.textContent='در حال تأیید...';
