@@ -8,6 +8,9 @@ function json(data, status=200) {
     headers: {"content-type":"application/json; charset=utf-8","cache-control":"no-store"}
   });
 }
+function toEnglishDigits(value) {
+  return String(value || "").replace(/[۰-۹٠-٩]/g, ch => { const n=ch.charCodeAt(0); return String(n>=0x06F0&&n<=0x06F9?n-0x06F0:n-0x0660); });
+}
 function normalizePhone(value) {
   const raw = String(value || "").replace(/[\s-]/g, "");
   if (/^09\d{9}$/.test(raw)) return raw;
