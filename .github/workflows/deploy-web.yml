@@ -1,4 +1,5 @@
 # Single Pages deployment workflow
+# Re-deploy static frontend while API traffic is handled by the Worker.
 name: Deploy ChemLink Web
 
 on:
