@@ -26,7 +26,7 @@ export async function onRequestGet({request,env}){
    const s=await getSession(request,env);if(!s||s.purpose!=="user")return json({ok:false,error:"برای دیدن آگهی‌های خود وارد حساب شوید."},401);
    return json({ok:true,offers:offers.filter(o=>o&&phoneDigits(o.owner||o.phone)===phoneDigits(s.phone)).map(privateOffer)});
   }
-  return json({ok:true,offers:offers.filter(o=>o&&String(o.status||"").toUpperCase()==="APPROVED").map(publicOffer).sort((a,b)=>Number(b.createdAt||0)-Number(a.createdAt||0)).slice(0,100)});
+  return json({ok:true,offers:offers.filter(o=>o&&String(o.status||"").trim().toUpperCase()==="APPROVED").map(publicOffer).sort((a,b)=>{const at=Number(a.createdAt)||0,bt=Number(b.createdAt)||0;return bt-at;})});
  }
  catch(e){console.error(e);return json({ok:false,error:"دریافت آگهی‌های فضای ابری انجام نشد."},503);}
 }
