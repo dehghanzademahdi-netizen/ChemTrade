@@ -44,3 +44,31 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+      - name: Verify public homepage
+        run: |
+          node --input-type=module <<'NODE'
+          const urls = ['https://chemlink.shop/', 'https://www.chemlink.shop/'];
+          let failed = false;
+          for (const url of urls) {
+            let good = false;
+            for (let attempt = 1; attempt <= 12; attempt++) {
+              try {
+                const response = await fetch(url + (url.includes('?') ? '&' : '?') + 'deploy_check=' + Date.now(), {
+                  cache: 'no-store',
+                  redirect: 'follow',
+                  headers: { 'cache-control': 'no-cache', 'pragma': 'no-cache' }
+                });
+                const body = await response.text();
+                const ok = response.ok && /ChemLink/i.test(body) && /<html/i.test(body);
+                console.log(JSON.stringify({url, attempt, status: response.status, finalUrl: response.url, contentType: response.headers.get('content-type'), html: /<html/i.test(body), hasChemLink: /ChemLink/i.test(body), preview: body.slice(0, 180)}));
+                if (ok) { good = true; break; }
+              } catch (error) {
+                console.log(JSON.stringify({url, attempt, error: String(error)}));
+              }
+              await new Promise(resolve => setTimeout(resolve, 10000));
+            }
+            if (!good) failed = true;
+          }
+          if (failed) throw new Error('At least one public homepage URL did not return the ChemLink HTML page.');
+          console.log('Both public homepage URLs are responding with ChemLink HTML.');
+          NODE
