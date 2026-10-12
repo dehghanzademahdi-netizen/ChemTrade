@@ -11,7 +11,7 @@ async function getSession(request,env){
  return {db,phone:row.phone,purpose:row.purpose};
 }
 async function readOffers(){
- const r=await fetch(FIREBASE_ROOT+"/chemlink/offers.json",{cache:"no-store"});
+ const r=await fetch(FIREBASE_ROOT+"/chemlink/offers.json",{cache:"no-store",headers:{"cache-control":"no-cache","pragma":"no-cache"}});
  if(!r.ok)throw new Error("cloud read failed");
  const data=await r.json();
  return Array.isArray(data)?data:(data&&typeof data==="object"?Object.values(data):[]);
