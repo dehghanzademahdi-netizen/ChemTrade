@@ -141,20 +141,38 @@ async function loadAdminUsers(message=''){
 
 async function loadAdminOffers(message=''){
  setAdminMode(true);const p=ensureAdminPanel();p.hidden=false;p.innerHTML='<div class="container"><h2>پنل مدیریت آگهی‌ها</h2><p>در حال دریافت آگهی‌های فضای ابری...</p></div>';
- try{const d=await api('/api/admin/offers');adminOffers=d.offers||[];renderAdminPanel(message)}
+ try{const d=await api('/api/admin/offers?_='+Date.now());adminOffers=d.offers||[];renderAdminPanel(message)}
  catch(e){renderAdminPanel(e.message||'دریافت آگهی‌ها انجام نشد.');if(String(e.message||'').includes('ورود مدیریت معتبر نیست')){localStorage.removeItem('chemlinkSession');localStorage.removeItem('chemlinkRole');localStorage.removeItem('chemlinkPhone');currentProfile=null;updateHeader();setAdminMode(false)}}
 }
 async function adminDecision(id,status){
  if(!id)return;const type=$('adminMarginType')?.value||selectedAdminOffer?.marginType||'PERCENT',margin=Number($('adminMargin')?.value??selectedAdminOffer?.margin??0)||0,reason=$('adminReason')?.value||'';
  try{
-  await api('/api/admin/offers',{method:'POST',body:JSON.stringify({id,status,marginType:type,margin,reason:status==='REJECTED'?(reason||'لطفاً اطلاعات آگهی را اصلاح کنید'):reason})});
+  const saved=await api('/api/admin/offers',{method:'POST',body:JSON.stringify({id,status,marginType:type,margin,reason:status==='REJECTED'?(reason||'لطفاً اطلاعات آگهی را اصلاح کنید'):reason})});
   selectedAdminOffer=null;
   if(status==='APPROVED'){
-   const publicData=await api('/api/offers',{method:'GET'});
-   const isPublic=(publicData.offers||[]).some(o=>String(o.id)===String(id));
-   if(!isPublic){await loadAdminOffers('وضعیت آگهی در فضای ابری ذخیره شد، اما API عمومی هنوز آن را برنمی‌گرداند؛ انتشار نهایی تأیید نشد. صفحه را دوباره تازه‌سازی کنید.');return}
+   let isPublic=false;
+   for(let attempt=0;attempt<4;attempt++){
+    const publicData=await api('/api/offers?_='+Date.now(),{method:'GET'});
+    isPublic=(publicData.offers||[]).some(o=>String(o.id)===String(id)&&String(o.status||'APPROVED').toUpperCase()==='APPROVED');
+    if(isPublic)break;
+    if(attempt<3)await new Promise(resolve=>setTimeout(resolve,350));
+   }
+   if(!isPublic){
+    const adminData=await api('/api/admin/offers?_='+Date.now());
+    const latest=(adminData.offers||[]).find(o=>String(o.id)===String(id));
+    adminOffers=adminData.offers||[];
+    if(latest&&String(latest.status||'').toUpperCase()==='APPROVED'){
+     adminTab='APPROVED';
+     renderAdminPanel('وضعیت تأییدشده در پنل مدیریت ثبت است، اما API عمومی هنوز آگهی را نشان نمی‌دهد. برای جلوگیری از برگشت وضعیت، آگهی را دوباره تأیید نکنید؛ مشکل همگام‌سازی در حال بررسی است.');
+    }else{
+     adminTab='PENDING';
+     renderAdminPanel('سرور تأیید آگهی را پایدار نگه نداشت. وضعیت برگشتی: '+String(latest?.status||'نامشخص')+'؛ لطفاً فعلاً دوباره تأیید نکنید.');
+    }
+    return;
+   }
    await loadListings({throwOnError:true});
-   await loadAdminOffers('انتشار تأیید شد: آگهی هم در فضای ابری ذخیره است و هم از فهرست عمومی دریافت شد.');
+   adminTab='APPROVED';
+   await loadAdminOffers('انتشار تأیید شد و آگهی از API عمومی دریافت شد.');
   }else{
    await loadAdminOffers('تغییر وضعیت آگهی ذخیره شد.');
    await loadListings();
