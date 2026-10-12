@@ -1,5 +1,6 @@
 const SESSION_TTL_MS=2592000000;
 function json(data,status=200){return new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});}
+function toEnglishDigits(value){return String(value||"").replace(/[۰-۹٠-٩]/g,ch=>{const n=ch.charCodeAt(0);return String(n>=0x06F0&&n<=0x06F9?n-0x06F0:n-0x0660);});}
 function normalizePhone(value){const raw=String(value||"").replace(/[\s-]/g,"");if(/^09\d{9}$/.test(raw))return raw;if(/^\+989\d{9}$/.test(raw))return "0"+raw.slice(3);if(/^989\d{9}$/.test(raw))return "0"+raw.slice(2);return null;}
 async function sha256(value){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(String(value)));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("");}
 function makeToken(){const b=new Uint8Array(32);crypto.getRandomValues(b);return [...b].map(x=>x.toString(16).padStart(2,"0")).join("");}
@@ -7,7 +8,7 @@ async function schema(db){await db.prepare("CREATE TABLE IF NOT EXISTS otp_codes
 export async function onRequestPost({request,env}){
  try{
   if(!env.DB)return json({ok:false,error:"پایگاه داده سرویس فعال نیست."},503);
-  const body=await request.json().catch(()=>({}));const phone=normalizePhone(body.phone);const code=String(body.code||"").trim();const purpose=body.purpose==="admin"?"admin":"user";
+  const body=await request.json().catch(()=>({}));const phone=normalizePhone(body.phone);const code=toEnglishDigits(body.code).trim();const purpose=body.purpose==="admin"?"admin":"user";
   if(!phone||!/^[0-9]{6}$/.test(code))return json({ok:false,error:"شماره موبایل یا کد تأیید معتبر نیست."},400);
   if(purpose==="admin" && phone!=="09357236476")return json({ok:false,error:"این شماره مجاز به ورود مدیریت نیست."},403);
   // Read from the primary so a newly issued OTP is immediately visible.
