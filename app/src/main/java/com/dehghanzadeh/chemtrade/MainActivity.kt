@@ -217,7 +217,7 @@ private fun MainScreen() {
         context.startActivity(Intent(context, EntryActivity::class.java)); (context as? ComponentActivity)?.finish()
     }
 
-    LaunchedEffect(admin, phone) { refreshCloud() }
+    LaunchedEffect(admin, phone) { while (true) { refreshCloud(); delay(30_000) } }
 
     Scaffold(
         topBar = { TopAppBar(title = {
