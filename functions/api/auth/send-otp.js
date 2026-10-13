@@ -67,7 +67,8 @@ export async function onRequestPost({request, env}) {
     const result = await response.json().catch(()=>null);
     if (!response.ok || !result || Number(result.status)!==1) {
       console.error("SMS.ir rejected OTP", {httpStatus:response.status,status:result?.status,message:result?.message});
-      return json({ok:false,error:"ارسال پیامک انجام نشد."},502);
+      const providerMessage=String(result?.message||"").trim().slice(0,180);
+      return json({ok:false,error:providerMessage?("سامانه پیامکی ارسال را نپذیرفت: "+providerMessage):"سامانه پیامکی ارسال را نپذیرفت. لطفاً کمی بعد دوباره تلاش کنید."},502);
     }
     await env.DB.prepare(`INSERT INTO otp_codes(phone,purpose,code_hash,sent_at,expires_at,attempts,message_id)
       VALUES(?,?,?,?,?,?,?)
