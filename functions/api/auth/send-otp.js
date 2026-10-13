@@ -12,7 +12,7 @@ function toEnglishDigits(value) {
   return String(value || "").replace(/[۰-۹٠-٩]/g, ch => { const n=ch.charCodeAt(0); return String(n>=0x06F0&&n<=0x06F9?n-0x06F0:n-0x0660); });
 }
 function normalizePhone(value) {
-  const raw = String(value || "").replace(/[\s-]/g, "");
+  const raw = toEnglishDigits(value).replace(/[\s-]/g, "");
   if (/^09\d{9}$/.test(raw)) return raw;
   if (/^\+989\d{9}$/.test(raw)) return "0" + raw.slice(3);
   if (/^989\d{9}$/.test(raw)) return "0" + raw.slice(2);
@@ -62,7 +62,7 @@ export async function onRequestPost({request, env}) {
     const response = await fetch("https://api.sms.ir/v1/send/verify", {
       method:"POST",
       headers:{"Content-Type":"application/json","Accept":"application/json","x-api-key":env.SMS_IR_API_KEY},
-      body:JSON.stringify({mobile:phone,templateId:SMS_IR_TEMPLATE_ID,parameters:[{name:"Code",value:otp}]})
+      body:JSON.stringify({Mobile:phone,TemplateId:SMS_IR_TEMPLATE_ID,Parameters:[{name:"Code",value:otp}]})
     });
     const result = await response.json().catch(()=>null);
     if (!response.ok || !result || Number(result.status)!==1) {
