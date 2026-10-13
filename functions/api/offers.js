@@ -36,6 +36,16 @@ export async function onRequestPost({request,env}){
   const s=await getSession(request,env);
   if(!s||s.purpose!=="user")return json({ok:false,error:"برای ثبت آگهی ابتدا وارد حساب شوید."},401);
   const body=await request.json().catch(()=>({}));
+  if(body.action==="DELETE"){
+   const id=String(body.id||"");if(!id)return json({ok:false,error:"شناسه آگهی معتبر نیست."},400);
+   const offers=await readOffers();
+   const index=offers.findIndex(o=>o&&String(o.id)===id&&phoneDigits(o.owner||o.phone)===phoneDigits(s.phone));
+   if(index<0)return json({ok:false,error:"این آگهی برای حساب شما پیدا نشد."},404);
+   offers.splice(index,1);
+   const saved=await fetch(FIREBASE_ROOT+"/chemlink/offers.json",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(offers)});
+   if(!saved.ok)return json({ok:false,error:"حذف آگهی از فضای ابری انجام نشد."},503);
+   return json({ok:true,deletedId:id});
+  }
   const kind=["sell","buy"].includes(body.kind)?body.kind:"sell";
   const name=String(body.name||"").trim().slice(0,180),category=String(body.category||"سایر مواد").trim().slice(0,100),official=String(body.official||"").trim().slice(0,100),market=String(body.market||"").trim().slice(0,100);
   const quantity=String(body.quantity||"").trim().slice(0,100),place=String(body.place||"").trim().slice(0,120),time=String(body.time||"").trim().slice(0,120);
