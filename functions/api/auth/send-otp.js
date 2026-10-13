@@ -62,7 +62,7 @@ export async function onRequestPost({request, env}) {
     const response = await fetch("https://api.sms.ir/v1/send/verify", {
       method:"POST",
       headers:{"Content-Type":"application/json","x-api-key":env.SMS_IR_API_KEY},
-      body:JSON.stringify({mobile:phone,templateId:SMS_IR_TEMPLATE_ID,parameters:[{name:"Code",value:otp}]})
+      body:JSON.stringify({Mobile:phone,TemplateId:SMS_IR_TEMPLATE_ID,Parameters:[{name:"Code",value:otp}]})
     });
     const result = await response.json().catch(()=>null);
     if (!response.ok || !result || Number(result.status)!==1) {
