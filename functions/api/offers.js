@@ -17,6 +17,7 @@ async function readOffers(){
  return Array.isArray(data)?data:(data&&typeof data==="object"?Object.values(data):[]);
 }
 function publicOffer(o){const k=String(o.kind||o.type||"").toLowerCase();return {id:o.id,category:o.category||"",kind:(["buy","request"].includes(k)||String(o.description||"").includes("نوع آگهی: درخواست خرید"))?"buy":"sell",official:o.publishedOfficial||o.official||"",market:o.publishedMarket||o.market||"",publishedOfficial:o.publishedOfficial||"",publishedMarket:o.publishedMarket||"",name:o.name||"",quantity:o.quantity||o.amount||"",deliveryTime:o.time||"",place:o.place||"",photo:o.photo||"",status:String(o.status||"PENDING").toUpperCase(),createdAt:o.createdAt||o.created_at||0,updatedAt:o.updatedAt||o.updated_at||0};}
+function isPubliclyApproved(o){const status=String(o.status||"").trim().toUpperCase();return status==="APPROVED"||(["PUBLISHED","ACTIVE"].includes(status))||(!!o.approvedAt&&!!(o.publishedOfficial||o.publishedMarket));}
 function privateOffer(o){return {...publicOffer(o),official:o.official||"",market:o.market||"",publishedOfficial:o.publishedOfficial||"",publishedMarket:o.publishedMarket||"",owner:o.owner||o.phone||"",phone:o.phone||"",supplier:o.supplier||"",description:o.description||"",reason:o.reason||"",marginType:o.marginType||"PERCENT",margin:Number(o.margin)||0};}
 export async function onRequestGet({request,env}){
  try{
@@ -26,7 +27,7 @@ export async function onRequestGet({request,env}){
    const s=await getSession(request,env);if(!s||s.purpose!=="user")return json({ok:false,error:"برای دیدن آگهی‌های خود وارد حساب شوید."},401);
    return json({ok:true,offers:offers.filter(o=>o&&phoneDigits(o.owner||o.phone)===phoneDigits(s.phone)).map(privateOffer)});
   }
-  return json({ok:true,offers:offers.filter(o=>o&&String(o.status||"").trim().toUpperCase()==="APPROVED").map(publicOffer).sort((a,b)=>{const at=Number(a.createdAt)||0,bt=Number(b.createdAt)||0;return bt-at;})});
+  return json({ok:true,offers:offers.filter(o=>o&&isPubliclyApproved(o)).map(o=>({...publicOffer(o),status:"APPROVED"})).sort((a,b)=>{const at=Number(a.createdAt)||0,bt=Number(b.createdAt)||0;return bt-at;})});
  }
  catch(e){console.error(e);return json({ok:false,error:"دریافت آگهی‌های فضای ابری انجام نشد."},503);}
 }
