@@ -66,7 +66,7 @@ jobs:
                 headers: { 'cache-control': 'no-cache' }
               });
               const offers = await offersResponse.json().catch(() => ({}));
-              console.log('Cloud marketplace diagnostic', offersResponse.status, JSON.stringify({ok: offers.ok, count: Array.isArray(offers.offers) ? offers.offers.length : -1}));
+              console.log('Marketplace login-gate diagnostic', offersResponse.status, JSON.stringify({ok: offers.ok, error: offers.error || null, count: Array.isArray(offers.offers) ? offers.offers.length : -1}));
 
               const good = healthResponse.ok &&
                 health.worker === 'chemlink' &&
@@ -74,11 +74,11 @@ jobs:
                 health.dbBinding === true &&
                 otpResponse.status === 400 &&
                 String(otp.error || '').includes('شماره موبایل معتبر نیست') &&
-                offersResponse.ok && offers.ok === true && Array.isArray(offers.offers);
+                offersResponse.status === 401 && offers.ok === false && String(offers.error || '').includes('وارد حساب');
               if (good) {
                 consecutiveGood++;
                 if (consecutiveGood >= 3) {
-                  console.log('Production health, OTP route, and shared cloud marketplace are verified.');
+                  console.log('Production health and OTP route are verified; marketplace data is gated behind login.');
                   process.exit(0);
                 }
               } else {
