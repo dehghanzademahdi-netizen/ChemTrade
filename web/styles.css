@@ -130,3 +130,14 @@ body:before{content:"";position:fixed;inset:0;z-index:-1;background-image:var(--
 @media(max-width:900px){.hero{background-position:62% center}.hero-grid{grid-template-columns:1fr;gap:4px;min-height:0}.hero-copy{padding:45px 0 20px}.hero-card{display:grid;height:310px;margin:0 0 34px}.hero h1{font-size:clamp(38px,7vw,52px)}.hero-logo-plate{min-height:160px}.hero-brand-image{height:105px}.app-top-inner{align-items:flex-start}.app-top-actions{justify-content:flex-start}}
 @media(max-width:700px){.hero{background-image:linear-gradient(180deg,rgba(244,250,255,.91),rgba(235,247,255,.83) 45%,rgba(8,49,78,.20)),var(--refinery-bg);background-position:60% center}.hero-copy{padding:38px 0 18px}.hero p{font-size:14px}.hero-qr{gap:12px}.hero-qr img{width:82px;height:82px}.hero-card{height:255px;border-radius:22px}.hero-visual-top,.hero-visual-footer{left:14px;right:14px}.hero-logo-plate{width:82%;min-height:140px;padding:14px}.hero-brand-image{height:95px}.orbit-a{width:230px;height:230px}.orbit-b{width:165px;height:165px}.app-top-actions{display:grid;grid-template-columns:1fr 1fr;width:100%}.app-top-btn{min-width:0;padding:9px;font-size:11px}.app-qr{grid-column:1/-1}.app-download-inner{gap:22px}.app-options{display:grid;grid-template-columns:1fr;width:100%}.app-option{min-width:0;width:100%}}
 @media(max-width:420px){.hero h1{font-size:35px}.hero-card{height:230px}.hero-qr{padding:8px}.hero-qr img{width:72px;height:72px}.app-top-actions{grid-template-columns:1fr}.app-qr{grid-column:auto}}
+
+
+/* iPhone Safari: keep the OTP form usable when the on-screen keyboard is open. */
+@supports (-webkit-touch-callout: none) {
+  .modal { align-items: flex-start; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-top: max(12px, env(safe-area-inset-top)); padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+  .modal-card { max-height: calc(100dvh - 24px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .modal-card input { font-size: 16px !important; min-height: 46px; }
+}
+.login-required { text-align: center; padding: 26px 18px; }
+.login-required strong { display: block; font-size: 17px; color: #102a4c; }
+.login-required p { margin: 8px 0 16px; color: #667085; }
