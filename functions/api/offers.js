@@ -17,7 +17,7 @@ async function readOffers(){
  return Array.isArray(data)?data:(data&&typeof data==="object"?Object.values(data):[]);
 }
 function publicOffer(o){const k=String(o.kind||o.type||"").toLowerCase();return {id:o.id,category:o.category||"",kind:(["buy","request"].includes(k)||String(o.description||"").includes("نوع آگهی: درخواست خرید"))?"buy":"sell",official:o.publishedOfficial||o.official||"",market:o.publishedMarket||o.market||"",publishedOfficial:o.publishedOfficial||"",publishedMarket:o.publishedMarket||"",name:o.name||"",quantity:o.quantity||o.amount||"",deliveryTime:o.time||"",place:o.place||"",photo:o.photo||"",status:String(o.status||"PENDING").toUpperCase(),createdAt:o.createdAt||o.created_at||0,updatedAt:o.updatedAt||o.updated_at||0};}
-function privateOffer(o){return {...publicOffer(o),official:o.official||"",market:o.market||"",publishedOfficial:o.publishedOfficial||"",publishedMarket:o.publishedMarket||"",owner:o.owner||o.phone||"",marginType:o.marginType||"PERCENT",margin:Number(o.margin)||0};}
+function privateOffer(o){return {...publicOffer(o),official:o.official||"",market:o.market||"",publishedOfficial:o.publishedOfficial||"",publishedMarket:o.publishedMarket||"",owner:o.owner||o.phone||"",phone:o.phone||"",supplier:o.supplier||"",description:o.description||"",reason:o.reason||"",marginType:o.marginType||"PERCENT",margin:Number(o.margin)||0};}
 export async function onRequestGet({request,env}){
  try{
   const url=new URL(request.url),mine=url.searchParams.get("mine")==="1";
