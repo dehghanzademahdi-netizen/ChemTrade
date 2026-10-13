@@ -22,9 +22,11 @@ function privateOffer(o){return {...publicOffer(o),official:o.official||"",marke
 export async function onRequestGet({request,env}){
  try{
   const url=new URL(request.url),mine=url.searchParams.get("mine")==="1";
+  const s=await getSession(request,env);
+  if(!s||!["user","admin"].includes(s.purpose))return json({ok:false,error:"برای مشاهده آگهی‌ها و قیمت‌های بازار ابتدا وارد حساب ChemLink شوید."},401);
   const offers=await readOffers();
   if(mine){
-   const s=await getSession(request,env);if(!s||s.purpose!=="user")return json({ok:false,error:"برای دیدن آگهی‌های خود وارد حساب شوید."},401);
+   if(s.purpose!=="user")return json({ok:false,error:"برای دیدن آگهی‌های خود وارد حساب کاربری شوید."},403);
    return json({ok:true,offers:offers.filter(o=>o&&phoneDigits(o.owner||o.phone)===phoneDigits(s.phone)).map(privateOffer)});
   }
   return json({ok:true,offers:offers.filter(o=>o&&isPubliclyApproved(o)).map(o=>({...publicOffer(o),status:"APPROVED"})).sort((a,b)=>{const at=Number(a.createdAt)||0,bt=Number(b.createdAt)||0;return bt-at;})});
