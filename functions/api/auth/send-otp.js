@@ -65,16 +65,22 @@ export async function onRequestPost({request, env}) {
       body:JSON.stringify({Mobile:phone,TemplateId:SMS_IR_TEMPLATE_ID,Parameters:[{name:"Code",value:otp}]})
     });
     const result = await response.json().catch(()=>null);
-    if (!response.ok || !result || Number(result.status)!==1) {
-      console.error("SMS.ir rejected OTP", {httpStatus:response.status,status:result?.status,message:result?.message});
-      const providerMessage=String(result?.message||"").trim().slice(0,180);
-      return json({ok:false,error:providerMessage?("سامانه پیامکی ارسال را نپذیرفت: "+providerMessage):"سامانه پیامکی ارسال را نپذیرفت. لطفاً کمی بعد دوباره تلاش کنید."},502);
+    const messageId = result?.data?.messageId ?? result?.data?.MessageId ?? result?.messageId ?? result?.MessageId ?? null;
+    if (!response.ok || !result || Number(result.status)!==1 || messageId==null || String(messageId).trim()==="") {
+      console.error("SMS.ir rejected or did not confirm OTP", {
+        httpStatus:response.status,
+        status:result?.status ?? result?.Status ?? null,
+        message:result?.message ?? result?.Message ?? null,
+        hasMessageId:messageId!=null
+      });
+      const providerMessage=String(result?.message ?? result?.Message ?? "").trim().slice(0,180);
+      return json({ok:false,error:providerMessage?("سامانه پیامکی ارسال را تأیید نکرد: "+providerMessage):"سامانه پیامکی شناسه ارسال برنگرداند؛ کد را ارسال‌شده فرض نکردیم. لطفاً کمی بعد دوباره تلاش کنید."},502);
     }
     await env.DB.prepare(`INSERT INTO otp_codes(phone,purpose,code_hash,sent_at,expires_at,attempts,message_id)
       VALUES(?,?,?,?,?,?,?)
       ON CONFLICT(phone,purpose) DO UPDATE SET code_hash=excluded.code_hash,sent_at=excluded.sent_at,expires_at=excluded.expires_at,attempts=0,message_id=excluded.message_id`)
-      .bind(phone,purpose,await sha256(otp),now,now+OTP_TTL_MS,0,String(result?.data?.messageId||"")).run();
-    return json({ok:true,message:"کد تأیید ارسال شد."});
+      .bind(phone,purpose,await sha256(otp),now,now+OTP_TTL_MS,0,String(messageId)).run();
+    return json({ok:true,message:"درخواست ارسال در SMS.ir ثبت شد.",messageId:String(messageId)});
   } catch (e) {
     console.error(e);
     return json({ok:false,error:"خطای داخلی سرویس پیامکی."},500);
