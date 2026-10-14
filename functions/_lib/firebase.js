@@ -7,11 +7,14 @@ function base64url(value) {
   const bytes = typeof value === "string" ? new TextEncoder().encode(value) : new Uint8Array(value);
   let binary = "";
   for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-  return btoa(binary).replace(/=/g, "").replace(/\\+/g, "-").replace(/\\//g, "_");
+  return btoa(binary).replaceAll("=", "").replaceAll("+", "-").replaceAll("/", "_");
 }
 
 function pemBytes(pem) {
-  const body = String(pem || "").replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\\s/g, "");
+  const body = String(pem || "")
+    .replaceAll("-----BEGIN PRIVATE KEY-----", "")
+    .replaceAll("-----END PRIVATE KEY-----", "")
+    .replaceAll("\n", "").replaceAll("\r", "").replaceAll(" ", "").replaceAll("\t", "");
   const binary = atob(body);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
@@ -27,27 +30,15 @@ async function accessToken(env) {
   if (!account.client_email || !account.private_key) throw new Error("Firebase service account JSON is missing required fields.");
   const now = Math.floor(Date.now() / 1000);
   const header = base64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
-  const claim = base64url(JSON.stringify({
-    iss: account.client_email,
-    scope: SCOPE,
-    aud: TOKEN_URL,
-    iat: now,
-    exp: now + 3600
-  }));
+  const claim = base64url(JSON.stringify({ iss: account.client_email, scope: SCOPE, aud: TOKEN_URL, iat: now, exp: now + 3600 }));
   const unsigned = header + "." + claim;
-  const key = await crypto.subtle.importKey(
-    "pkcs8", pemBytes(account.private_key),
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]
-  );
+  const key = await crypto.subtle.importKey("pkcs8", pemBytes(account.private_key), { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
   const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(unsigned));
   const assertion = unsigned + "." + base64url(signature);
   const response = await fetch(TOKEN_URL, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-      assertion
-    })
+    body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion })
   });
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
@@ -66,10 +57,5 @@ export async function firebaseFetch(env, path, init = {}) {
   const headers = new Headers(init.headers || {});
   headers.set("authorization", "Bearer " + token);
   if (!headers.has("accept")) headers.set("accept", "application/json");
-  const response = await fetch("https://chemlink-8909b-default-rtdb.firebaseio.com" + path, {
-    ...init,
-    headers,
-    cache: init.cache || "no-store"
-  });
-  return response;
+  return fetch("https://chemlink-8909b-default-rtdb.firebaseio.com" + path, { ...init, headers, cache: init.cache || "no-store" });
 }
