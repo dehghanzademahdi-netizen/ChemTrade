@@ -83,7 +83,7 @@ async function verifySmsLogin(){
  finally{b.disabled=false}
 }
 
-let adminOffers=[],adminTab='PENDING',selectedAdminOffer=null;
+let adminOffers=[],adminTab='ALL',selectedAdminOffer=null;
 function ensureAdminPanel(){let p=$('adminPanel');if(!p){p=document.createElement('section');p.id='adminPanel';p.className='section';p.style.cssText='min-height:70vh;padding:28px 0';document.querySelector('main')?.prepend(p)}return p}
 function setAdminMode(on){const panel=ensureAdminPanel();panel.hidden=!on;document.querySelectorAll('main > section:not(#adminPanel)').forEach(x=>{if(x.id!=='myOffers')x.hidden=on});const footer=document.querySelector('footer');if(footer)footer.hidden=on;const nav=document.querySelector('.nav-links');if(nav)nav.hidden=false;const post=$('postBtn');if(post)post.hidden=on}
 function adminStatusLabel(status){return status==='APPROVED'?'منتشرشده':status==='REJECTED'?'نیازمند اصلاح':'در انتظار بررسی'}
@@ -92,11 +92,11 @@ function adminMoney(v){const digits=adminDigits(v).replace(/[^0-9]/g,'');const n
 function adminFinal(base,type,margin){const n=adminMoney(base);if(n===null)return 'قابل محاسبه نیست';const m=Math.max(0,Number(margin)||0);return Math.round(type==='TOMAN'?n+m:n+n*m/100).toLocaleString('fa-IR')+' تومان'}
 function renderAdminPanel(message=''){
  if(adminTab==='USERS'){renderAdminUsers(message);return}
- const panel=ensureAdminPanel(),items=adminOffers.filter(o=>String(o.status||'PENDING').toUpperCase()===adminTab);
- const tabs=[['PENDING','در انتظار بررسی'],['APPROVED','منتشرشده'],['REJECTED','نیازمند اصلاح'],['USERS','مدیریت کاربران']];
+ const panel=ensureAdminPanel(),items=adminTab==='ALL'?adminOffers:adminOffers.filter(o=>String(o.status||'PENDING').toUpperCase()===adminTab);
+ const tabs=[['ALL','همه آگهی‌ها'],['PENDING','در انتظار بررسی'],['APPROVED','منتشرشده'],['REJECTED','نیازمند اصلاح'],['USERS','مدیریت کاربران']];
  let html='<div class="container"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div><span class="kicker">CHEMLINK ADMIN</span><h2 style="margin:6px 0">پنل مدیریت آگهی‌ها</h2><p style="margin:0;color:#64748b">بررسی آگهی، اعمال سود روی هر دو قیمت و انتشار در بازار</p></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button id="adminUsersOpen" class="ghost">مدیریت کاربران</button><button id="adminRefresh" class="ghost">به‌روزرسانی آگهی‌ها</button></div></div>';
  if(message)html+='<p style="padding:12px;border-radius:10px;background:#fff7ed;color:#9a3412">'+esc(message)+'</p>';
- html+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin:20px 0">'+tabs.map(t=>'<button class="'+(adminTab===t[0]?'primary':'ghost')+'" data-admin-tab="'+t[0]+'">'+t[1]+' ('+(t[0]==='USERS'?adminUsers.length:adminOffers.filter(o=>String(o.status||'PENDING').toUpperCase()===t[0]).length)+')</button>').join('')+'</div>';
+ html+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin:20px 0">'+tabs.map(t=>'<button class="'+(adminTab===t[0]?'primary':'ghost')+'" data-admin-tab="'+t[0]+'">'+t[1]+' ('+(t[0]==='USERS'?adminUsers.length:t[0]==='ALL'?adminOffers.length:adminOffers.filter(o=>String(o.status||'PENDING').toUpperCase()===t[0]).length)+')</button>').join('')+'</div>';
  html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;align-items:start">';
  if(!items.length)html+='<div class="empty" style="grid-column:1/-1">در این بخش آگهی‌ای وجود ندارد.</div>';
  items.forEach(o=>{html+='<article style="background:white;border:1px solid #dbe3ee;border-radius:16px;padding:16px;box-shadow:0 5px 18px #0f172a0a"><div style="display:flex;justify-content:space-between;gap:8px"><span class="badge">'+(o.kind==='buy'?'درخواست خرید':'عرضه برای فروش')+'</span><small>'+adminStatusLabel(String(o.status||'PENDING').toUpperCase())+'</small></div><h3 style="margin:12px 0 6px">'+esc(o.name||'بدون نام')+'</h3><p style="margin:4px 0"><b>مقدار:</b> '+esc(o.quantity||'ثبت نشده')+'</p><p style="margin:4px 0"><b>قیمت رسمی تأمین‌کننده:</b> '+esc(o.official||'ثبت نشده')+'</p><p style="margin:4px 0"><b>قیمت غیررسمی تأمین‌کننده:</b> '+esc(o.market||'ثبت نشده')+'</p><p style="margin:4px 0"><b>تحویل:</b> '+esc(o.place||'')+' — '+esc(o.time||'')+'</p><p style="margin:4px 0"><b>فروشنده:</b> '+esc(o.supplier||'')+'</p><p style="margin:4px 0"><b>تلفن:</b> '+esc(o.phone||o.owner||'')+'</p><p style="white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0">'+esc(o.description||'')+'</p>';
