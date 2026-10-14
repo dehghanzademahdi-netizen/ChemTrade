@@ -10,10 +10,26 @@ async function adminSession(request,env){
  return row;
 }
 async function readOffers(){
- const r=await fetch(FIREBASE_ROOT+"/chemlink/offers.json",{cache:"no-store",headers:{"cache-control":"no-cache","pragma":"no-cache"}});
- if(!r.ok)throw new Error("cloud read failed");
- const data=await r.json();
- return Array.isArray(data)?data:(data&&typeof data==="object"?Object.values(data):[]);
+ const paths=["/chemlink/offers.json","/chemlinkSnapshot.json","/offers.json"];
+ const results=await Promise.all(paths.map(async path=>{
+  const r=await fetch(FIREBASE_ROOT+path,{cache:"no-store",headers:{"cache-control":"no-cache","pragma":"no-cache"}});
+  if(!r.ok)throw new Error("cloud read failed: "+path);
+  return {path,data:await r.json()};
+ }));
+ const map=new Map();
+ const key=o=>[String(o.owner||o.phone||""),String(o.id||""),String(o.createdAt||o.created_at||""),String(o.name||"")].join("|");
+ const add=value=>{
+  const arr=Array.isArray(value)?value:(value&&typeof value==="object"?Object.values(value):[]);
+  for(const o of arr){if(!o||typeof o!=="object")continue;const k=key(o);if(k==="|||")continue;
+   if(!map.has(k))map.set(k,o);
+   else {const old=map.get(k);map.set(k,{...old,...o});}
+  }
+ };
+ for(const result of results){
+  if(result.path==="/chemlinkSnapshot.json"&&result.data&&typeof result.data==="object")add(result.data.offers);
+  else add(result.data);
+ }
+ return [...map.values()];
 }
 async function writeOffers(offers){
  const r=await fetch(FIREBASE_ROOT+"/chemlink/offers.json",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(offers)});
