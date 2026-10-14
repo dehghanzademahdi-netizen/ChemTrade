@@ -12,11 +12,13 @@ async function getSession(request,env){
 }
 async function readOffers(){
  const paths=["/chemlink/offers.json","/chemlinkSnapshot.json","/offers.json"];
- const results=await Promise.all(paths.map(async path=>{
+ const settled=await Promise.allSettled(paths.map(async path=>{
   const r=await fetch(FIREBASE_ROOT+path,{cache:"no-store",headers:{"cache-control":"no-cache","pragma":"no-cache"}});
   if(!r.ok)throw new Error("cloud read failed: "+path);
   return {path,data:await r.json()};
  }));
+ const results=settled.filter(x=>x.status==="fulfilled").map(x=>x.value);
+ if(!results.length)throw new Error("cloud read failed for all known offer stores");
  const map=new Map();
  const key=o=>[String(o.owner||o.phone||""),String(o.id||""),String(o.createdAt||o.created_at||""),String(o.name||"")].join("|");
  const add=value=>{
