@@ -13,11 +13,11 @@ async function readOffers(){
  const paths=["/chemlink/offers.json","/chemlinkSnapshot.json","/offers.json"];
  const settled=await Promise.allSettled(paths.map(async path=>{
   const r=await fetch(FIREBASE_ROOT+path,{cache:"no-store",headers:{"cache-control":"no-cache","pragma":"no-cache"}});
-  if(!r.ok)throw new Error("cloud read failed: "+path);
+  if(!r.ok)throw new Error("HTTP "+r.status+" at "+path);
   return {path,data:await r.json()};
  }));
  const results=settled.filter(x=>x.status==="fulfilled").map(x=>x.value);
- if(!results.length)throw new Error("cloud read failed for all known offer stores");
+ if(!results.length){const failures=settled.filter(x=>x.status==="rejected").map(x=>String(x.reason?.message||"read failed"));throw new Error("all cloud offer sources failed: "+failures.join("; "));}
  const map=new Map();
  const key=o=>[String(o.owner||o.phone||""),String(o.id||""),String(o.createdAt||o.created_at||""),String(o.name||"")].join("|");
  const add=value=>{
@@ -66,7 +66,7 @@ export async function onRequestGet({request,env}){
   const s=await adminSession(request,env);if(!s)return json({ok:false,error:"ورود مدیریت معتبر نیست؛ دوباره وارد شوید."},401);
   const offers=await readOffers();
   return json({ok:true,offers:offers.filter(Boolean).map(o=>({...o,status:normalizedOfferStatus(o)})).sort((a,b)=>Number(b.createdAt||0)-Number(a.createdAt||0))});
- }catch(e){console.error("admin offers GET",e);return json({ok:false,error:"خواندن آگهی‌های مدیریت انجام نشد."},503);}
+ }catch(e){console.error("admin offers GET",e);return json({ok:false,error:"خواندن آگهی‌های مدیریت انجام نشد: "+String(e?.message||"unknown error").slice(0,240)},503);}
 }
 export async function onRequestPost({request,env}){
  try{
