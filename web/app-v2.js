@@ -54,7 +54,7 @@ async function startSmsLogin(){
  if(!validPhone(phone)){$('modalText').textContent='لطفاً شماره موبایل معتبر ۱۱ رقمی وارد کنید.';return}
  const purpose=phone===ADMIN_PHONE?'admin':'user';
  const b=$('modalAction');b.disabled=true;b.textContent='در حال ارسال...';
- const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),20000);try{await api('/api/auth/send-otp',{method:'POST',body:JSON.stringify({phone,purpose}),signal:controller.signal});$('otpWrap').style.display='block';$('phone').disabled=true;$('modalText').textContent='درخواست توسط سرور پذیرفته شد. اگر پیامک نرسید، ممکن است سامانه پیامکی آن را تحویل نداده باشد.';b.textContent='تأیید کد';b.onclick=verifySmsLogin;$('otp')?.focus()}
+ const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),20000);try{const sent=await api('/api/auth/send-otp',{method:'POST',body:JSON.stringify({phone,purpose}),signal:controller.signal});$('otpWrap').style.display='block';$('phone').disabled=true;$('modalText').textContent='درخواست در SMS.ir ثبت شد. شناسه ارسال: '+sent.messageId+' — اگر این شناسه در گزارش SMS.ir نیست، ارسال از سمت سرویس پیامکی ثبت نشده است.';b.textContent='تأیید کد';b.onclick=verifySmsLogin;$('otp')?.focus()}
  catch(e){$('modalText').textContent=e.message||'ارسال کد انجام نشد.';b.textContent='دریافت کد پیامکی'}
  finally{b.disabled=false}
 }
