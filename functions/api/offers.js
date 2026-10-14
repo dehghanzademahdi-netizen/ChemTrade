@@ -14,11 +14,11 @@ async function readOffers(){
  const paths=["/chemlink/offers.json","/chemlinkSnapshot.json","/offers.json"];
  const settled=await Promise.allSettled(paths.map(async path=>{
   const r=await fetch(FIREBASE_ROOT+path,{cache:"no-store",headers:{"cache-control":"no-cache","pragma":"no-cache"}});
-  if(!r.ok)throw new Error("cloud read failed: "+path);
+  if(!r.ok)throw new Error("HTTP "+r.status+" at "+path);
   return {path,data:await r.json()};
  }));
  const results=settled.filter(x=>x.status==="fulfilled").map(x=>x.value);
- if(!results.length)throw new Error("cloud read failed for all known offer stores");
+ if(!results.length){const failures=settled.filter(x=>x.status==="rejected").map(x=>String(x.reason?.message||"read failed"));throw new Error("all cloud offer sources failed: "+failures.join("; "));}
  const map=new Map();
  const key=o=>[String(o.owner||o.phone||""),String(o.id||""),String(o.createdAt||o.created_at||""),String(o.name||"")].join("|");
  const add=value=>{
@@ -55,7 +55,7 @@ export async function onRequestGet({request,env}){
   }
   return json({ok:true,offers:offers.filter(o=>o&&isPubliclyApproved(o)).map(o=>({...publicOffer(o),status:"APPROVED"})).sort((a,b)=>{const at=Number(a.createdAt)||0,bt=Number(b.createdAt)||0;return bt-at;})});
  }
- catch(e){console.error(e);return json({ok:false,error:"دریافت آگهی‌های فضای ابری انجام نشد."},503);}
+ catch(e){console.error("offers GET cloud read",e);return json({ok:false,error:"دریافت آگهی‌های فضای ابری انجام نشد: "+String(e?.message||"unknown error").slice(0,240)},503);}
 }
 export async function onRequestPost({request,env}){
  try{
