@@ -1,3 +1,4 @@
+import { firebaseFetch } from "../../_lib/firebase.js";
 const FIREBASE_ROOT="https://chemlink-8909b-default-rtdb.firebaseio.com";
 function json(data,status=200){return new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store","pragma":"no-cache"}});}
 async function sha256(value){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(String(value)));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("");}
@@ -9,10 +10,10 @@ async function adminSession(request,env){
  if(!row||Date.now()>Number(row.expires_at)||row.purpose!=="admin"||row.phone!=="09357236476")return null;
  return row;
 }
-async function readOffers(){
+async function readOffers(env){
  const paths=["/chemlink/offers.json","/chemlinkSnapshot.json","/offers.json"];
  const settled=await Promise.allSettled(paths.map(async path=>{
-  const r=await fetch(FIREBASE_ROOT+path,{cache:"no-store",headers:{"cache-control":"no-cache","pragma":"no-cache"}});
+  const r=await firebaseFetch(env,path,{cache:"no-store",headers:{"cache-control":"no-cache","pragma":"no-cache"}});
   if(!r.ok)throw new Error("HTTP "+r.status+" at "+path);
   return {path,data:await r.json()};
  }));
@@ -34,9 +35,9 @@ async function readOffers(){
  return [...map.values()];
 }
 async function writeOffers(offers){
- const r=await fetch(FIREBASE_ROOT+"/chemlink/offers.json",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(offers)});
+ const r=await firebaseFetch(env,"/chemlink/offers.json",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(offers)});
  if(!r.ok)throw new Error("فضای ابری ذخیره تغییرات را نپذیرفت (HTTP "+r.status+").");
- const verify=await fetch(FIREBASE_ROOT+"/chemlink/offers.json",{cache:"no-store",headers:{"cache-control":"no-cache","pragma":"no-cache"}});
+ const verify=await firebaseFetch(env,"/chemlink/offers.json",{cache:"no-store",headers:{"cache-control":"no-cache","pragma":"no-cache"}});
  if(!verify.ok)throw new Error("تغییر ذخیره شد اما بررسی نهایی فضای ابری ناموفق بود.");
  const data=await verify.json(),saved=Array.isArray(data)?data:(data&&typeof data==="object"?Object.values(data):[]);
  if(saved.length!==offers.length)throw new Error("تعداد آگهی‌های ذخیره‌شده با فهرست مدیریت تطابق ندارد.");
@@ -64,7 +65,7 @@ function finalPrice(base,type,margin){
 export async function onRequestGet({request,env}){
  try{
   const s=await adminSession(request,env);if(!s)return json({ok:false,error:"ورود مدیریت معتبر نیست؛ دوباره وارد شوید."},401);
-  const offers=await readOffers();
+  const offers=await readOffers(env);
   return json({ok:true,offers:offers.filter(Boolean).map(o=>({...o,status:normalizedOfferStatus(o)})).sort((a,b)=>Number(b.createdAt||0)-Number(a.createdAt||0))});
  }catch(e){console.error("admin offers GET",e);return json({ok:false,error:"خواندن آگهی‌های مدیریت انجام نشد: "+String(e?.message||"unknown error").slice(0,240)},503);}
 }
@@ -72,7 +73,7 @@ export async function onRequestPost({request,env}){
  try{
   const s=await adminSession(request,env);if(!s)return json({ok:false,error:"ورود مدیریت معتبر نیست؛ دوباره وارد شوید."},401);
   const body=await request.json().catch(()=>({}));
-  const offers=await readOffers();
+  const offers=await readOffers(env);
   if(body.action==="CREATE"){
    const name=String(body.name||"").trim().slice(0,180),category=String(body.category||"سایر مواد").trim().slice(0,100),place=String(body.place||"").trim().slice(0,120),quantity=String(body.quantity||"").trim().slice(0,100);
    if(name.length<2||place.length<2||quantity.length<1)return json({ok:false,error:"نام ماده، مقدار و محل تحویل را کامل کنید."},400);
