@@ -1,10 +1,11 @@
+import { firebaseFetch } from "../../_lib/firebase.js";
 function json(data,status=200){return new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store","pragma":"no-cache"}});}
 async function sha256(value){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(String(value)));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("");}
 const FIREBASE_ROOT="https://chemlink-8909b-default-rtdb.firebaseio.com";
 function canonicalPhone(value){let p=String(value||"").replace(/\D/g,"");if(p.startsWith("0098"))p=p.slice(2);if(p.startsWith("98")&&p.length===12)p="0"+p.slice(2);if(p.length===10&&p.startsWith("9"))p="0"+p;return p;}
-async function legacyFirebaseUsers(){
+async function legacyFirebaseUsers(env){
  try{
-  const [a,b]=await Promise.all([fetch(FIREBASE_ROOT+"/chemlink/users.json",{cache:"no-store"}),fetch(FIREBASE_ROOT+"/chemlink/usersByPhone.json",{cache:"no-store"})]);
+  const [a,b]=await Promise.all([firebaseFetch(env,"/chemlink/users.json",{cache:"no-store"}),firebaseFetch(env,"/chemlink/usersByPhone.json",{cache:"no-store"})]);
   const [users,byPhone]=await Promise.all([a.ok?a.json():[],b.ok?b.json():{}]);
   const rows=Array.isArray(users)?users:(users&&typeof users==="object"?Object.values(users):[]);
   if(byPhone&&typeof byPhone==="object"&&!Array.isArray(byPhone))rows.push(...Object.values(byPhone));
@@ -38,7 +39,7 @@ export async function onRequestGet({request,env}){
   await ensureProfileSchema(db);
   const profiles=await db.prepare("SELECT phone,full_name,company_name,role,city,business_type,needed_materials,address,landline,created_at,updated_at FROM user_profiles ORDER BY created_at DESC").all();
   const sessions=await db.prepare("SELECT phone,MAX(created_at) AS last_login,MAX(expires_at) AS session_expires FROM sessions WHERE purpose='user' GROUP BY phone").all();
-  const byPhone=new Map((await legacyFirebaseUsers()).map(p=>[p.phone,p]));
+  const byPhone=new Map((await legacyFirebaseUsers(env)).map(p=>[p.phone,p]));
   for(const p of profiles.results||[])byPhone.set(p.phone,{...(byPhone.get(p.phone)||{}),...mapProfile(p)});
   for(const s of sessions.results||[]){
    const phone=canonicalPhone(s.phone);
