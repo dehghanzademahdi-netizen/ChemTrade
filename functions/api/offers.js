@@ -1,3 +1,4 @@
+import { firebaseFetch } from "../_lib/firebase.js";
 const FIREBASE_ROOT="https://chemlink-8909b-default-rtdb.firebaseio.com";
 function json(data,status=200){return new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});}
 async function sha256(value){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(String(value)));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("");}
@@ -10,10 +11,10 @@ async function getSession(request,env){
  if(!row||Date.now()>Number(row.expires_at))return null;
  return {db,phone:row.phone,purpose:row.purpose};
 }
-async function readOffers(){
+async function readOffers(env){
  const paths=["/chemlink/offers.json","/chemlinkSnapshot.json","/offers.json"];
  const settled=await Promise.allSettled(paths.map(async path=>{
-  const r=await fetch(FIREBASE_ROOT+path,{cache:"no-store",headers:{"cache-control":"no-cache","pragma":"no-cache"}});
+  const r=await firebaseFetch(env,path,{cache:"no-store",headers:{"cache-control":"no-cache","pragma":"no-cache"}});
   if(!r.ok)throw new Error("HTTP "+r.status+" at "+path);
   return {path,data:await r.json()};
  }));
@@ -48,7 +49,7 @@ export async function onRequestGet({request,env}){
   const url=new URL(request.url),mine=url.searchParams.get("mine")==="1";
   const s=await getSession(request,env);
   if(!s||!["user","admin"].includes(s.purpose))return json({ok:false,error:"برای مشاهده آگهی‌ها و قیمت‌های بازار ابتدا وارد حساب ChemLink شوید."},401);
-  const offers=await readOffers();
+  const offers=await readOffers(env);
   if(mine){
    if(s.purpose!=="user")return json({ok:false,error:"برای دیدن آگهی‌های خود وارد حساب کاربری شوید."},403);
    return json({ok:true,offers:offers.filter(o=>o&&phoneDigits(o.owner||o.phone)===phoneDigits(s.phone)).map(privateOffer)});
@@ -64,11 +65,11 @@ export async function onRequestPost({request,env}){
   const body=await request.json().catch(()=>({}));
   if(body.action==="DELETE"){
    const id=String(body.id||"");if(!id)return json({ok:false,error:"شناسه آگهی معتبر نیست."},400);
-   const offers=await readOffers();
+   const offers=await readOffers(env);
    const index=offers.findIndex(o=>o&&String(o.id)===id&&phoneDigits(o.owner||o.phone)===phoneDigits(s.phone));
    if(index<0)return json({ok:false,error:"این آگهی برای حساب شما پیدا نشد."},404);
    offers.splice(index,1);
-   const saved=await fetch(FIREBASE_ROOT+"/chemlink/offers.json",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(offers)});
+   const saved=await firebaseFetch(env,"/chemlink/offers.json",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(offers)});
    if(!saved.ok)return json({ok:false,error:"حذف آگهی از فضای ابری انجام نشد."},503);
    return json({ok:true,deletedId:id});
   }
@@ -80,7 +81,7 @@ export async function onRequestPost({request,env}){
   const reason=String(body.reason||"").trim().slice(0,1000);
   if(name.length<2||place.length<2||quantity.length<1)return json({ok:false,error:"نام ماده، مقدار و محل تحویل را کامل کنید."},400);
   if(photo&&!/^https:\/\//i.test(photo))return json({ok:false,error:"برای همگام‌سازی عکس در همه دستگاه‌ها، لینک عکس باید با https شروع شود."},400);
-  const offers=await readOffers(),now=Date.now();
+  const offers=await readOffers(env),now=Date.now();
   const requestedId=String(body.id||"").trim();
   let existingIndex=-1;
   if(requestedId){
@@ -89,14 +90,14 @@ export async function onRequestPost({request,env}){
    const old=offers[existingIndex];
    const updated={...old,kind,name,category,official,market,quantity,time:time||quantity,place,supplier,phone,owner:s.phone,description:(kind==="buy"?"نوع آگهی: درخواست خرید\n":"نوع آگهی: عرضه برای فروش\n")+description,photo,status:"PENDING",reason,marginType:old.marginType||"PERCENT",margin:Number(old.margin)||0,publishedOfficial:"",publishedMarket:"",updatedAt:now};
    offers[existingIndex]=updated;
-   const saved=await fetch(FIREBASE_ROOT+"/chemlink/offers.json",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(offers)});
+   const saved=await firebaseFetch(env,"/chemlink/offers.json",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(offers)});
    if(!saved.ok)return json({ok:false,error:"ذخیره تغییرات آگهی در فضای ابری انجام نشد."},503);
    return json({ok:true,offer:privateOffer(updated)});
   }
   const maxId=offers.reduce((max,o)=>Math.max(max,Number(o?.id)||0),0);
   const offer={id:maxId+1,kind,name,category,official,market,quantity,time:time||quantity,place,supplier,phone,owner:s.phone,description:(kind==="buy"?"نوع آگهی: درخواست خرید\n":"نوع آگهی: عرضه برای فروش\n")+description,photo,status:"PENDING",reason,marginType:"PERCENT",margin:0,publishedOfficial:"",publishedMarket:"",createdAt:now,updatedAt:now};
   offers.push(offer);
-  const saved=await fetch(FIREBASE_ROOT+"/chemlink/offers.json",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(offers)});
+  const saved=await firebaseFetch(env,"/chemlink/offers.json",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(offers)});
   if(!saved.ok)return json({ok:false,error:"ذخیره آگهی در فضای ابری انجام نشد."},503);
   return json({ok:true,offer:privateOffer(offer)},201);
  }catch(e){console.error(e);return json({ok:false,error:"ثبت آگهی در فضای ابری انجام نشد."},503);}
