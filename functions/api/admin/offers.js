@@ -24,6 +24,12 @@ async function writeOffers(offers){
  if(saved.length!==offers.length)throw new Error("تعداد آگهی‌های ذخیره‌شده با فهرست مدیریت تطابق ندارد.");
  for(const expected of offers){const actual=saved.find(x=>x&&String(x.id)===String(expected.id));if(!actual||String(actual.status||"").toUpperCase()!==String(expected.status||"").toUpperCase())throw new Error("وضعیت نهایی آگهی در فضای ابری تأیید نشد.");}
 }
+function normalizedOfferStatus(o){
+ const status=String(o.status||o.state||o.approvalStatus||"").trim().toUpperCase();
+ if(["APPROVED","PUBLISHED","ACTIVE","LIVE","PUBLIC"].includes(status)||o.approved===true||o.isApproved===true||o.published===true||o.isPublished===true||!!(o.approvedAt&&(o.publishedOfficial||o.publishedMarket)))return "APPROVED";
+ if(["REJECTED","NEEDS_CORRECTION","CORRECTION","CHANGES_REQUESTED"].includes(status))return "REJECTED";
+ return "PENDING";
+}
 function money(value){
  const n=Number(value);
  return Number.isFinite(n)?new Intl.NumberFormat("fa-IR",{maximumFractionDigits:0}).format(Math.round(n))+" تومان":"";
@@ -41,7 +47,7 @@ export async function onRequestGet({request,env}){
  try{
   const s=await adminSession(request,env);if(!s)return json({ok:false,error:"ورود مدیریت معتبر نیست؛ دوباره وارد شوید."},401);
   const offers=await readOffers();
-  return json({ok:true,offers:offers.filter(Boolean).map(o=>({...o,status:String(o.status||"PENDING").toUpperCase()})).sort((a,b)=>Number(b.createdAt||0)-Number(a.createdAt||0))});
+  return json({ok:true,offers:offers.filter(Boolean).map(o=>({...o,status:normalizedOfferStatus(o)})).sort((a,b)=>Number(b.createdAt||0)-Number(a.createdAt||0))});
  }catch(e){console.error("admin offers GET",e);return json({ok:false,error:"خواندن آگهی‌های مدیریت انجام نشد."},503);}
 }
 export async function onRequestPost({request,env}){
