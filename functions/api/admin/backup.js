@@ -1,3 +1,4 @@
+import { firebaseFetch } from "../../_lib/firebase.js";
 const FIREBASE_ROOT="https://chemlink-8909b-default-rtdb.firebaseio.com";
 function json(data,status=200){return new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store","pragma":"no-cache"}});}
 async function sha256(value){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(String(value)));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("");}
@@ -13,7 +14,7 @@ export async function onRequestGet({request,env}){
  try{
   const db=await session(request,env);
   if(!db)return json({ok:false,error:"برای پشتیبان‌گیری، ورود مدیریت لازم است."},401);
-  const cloudResponse=await fetch(FIREBASE_ROOT+"/chemlink.json",{cache:"no-store"});
+  const cloudResponse=await firebaseFetch(env,"/chemlink.json",{cache:"no-store"});
   if(!cloudResponse.ok)return json({ok:false,error:"خواندن اطلاعات فضای ابری ناموفق بود؛ فایل پشتیبان ناقص ساخته نشد."},503);
   const cloud=await cloudResponse.json();
   let profiles=[];
