@@ -1,5 +1,5 @@
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
-const SCOPE = "https://www.googleapis.com/auth/firebase.database";
+const SCOPE = "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/firebase.database";
 let cachedToken = "";
 let cachedUntil = 0;
 
