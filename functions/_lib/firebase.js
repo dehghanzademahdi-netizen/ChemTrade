@@ -14,7 +14,7 @@ function pemBytes(pem) {
   const body = String(pem || "")
     .replaceAll("-----BEGIN PRIVATE KEY-----", "")
     .replaceAll("-----END PRIVATE KEY-----", "")
-    .replaceAll("\n", "").replaceAll("\r", "").replaceAll(" ", "").replaceAll("\t", "");
+    .replaceAll("\\n", "").replaceAll("\\r", "").replaceAll(" ", "").replaceAll("\\t", "");
   const binary = atob(body);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
@@ -54,8 +54,12 @@ async function accessToken(env) {
 
 export async function firebaseFetch(env, path, init = {}) {
   const token = await accessToken(env);
+  const url = new URL("https://chemlink-8909b-default-rtdb.firebaseio.com" + path);
+  // Realtime Database REST documents OAuth access tokens via the access_token query parameter.
+  // Use this documented mechanism so the service-account credentials are honored for admin reads/writes.
+  url.searchParams.set("access_token", token);
   const headers = new Headers(init.headers || {});
-  headers.set("authorization", "Bearer " + token);
+  headers.delete("authorization");
   if (!headers.has("accept")) headers.set("accept", "application/json");
-  return fetch("https://chemlink-8909b-default-rtdb.firebaseio.com" + path, { ...init, headers, cache: init.cache || "no-store" });
+  return fetch(url.toString(), { ...init, headers, cache: init.cache || "no-store" });
 }
