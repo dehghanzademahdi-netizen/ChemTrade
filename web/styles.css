@@ -143,3 +143,86 @@ body:before{content:"";position:fixed;inset:0;z-index:-1;background-image:var(--
 .login-required { text-align: center; padding: 26px 18px; }
 .login-required strong { display: block; font-size: 17px; color: #102a4c; }
 .login-required p { margin: 8px 0 16px; color: #667085; }
+
+
+/* 2026 premium ChemLink design pass — presentation only; auth/data logic unchanged */
+:root{--bg:#f4faff;--ink:#102c4a;--muted:#58718a;--line:#d9e8f4;--navy:#08264a;--blue:#087fe0;--cyan:#20b9e8}
+body{background:#f5faff;color:#102b49}
+.topbar{background:#075da5;color:#e8f6ff}
+.topbar-inner{height:30px;font-size:11px}
+.header{margin:12px auto 0;width:min(1495px,calc(100% - 40px));border:1px solid rgba(255,255,255,.9);border-radius:22px;background:rgba(255,255,255,.88);box-shadow:0 12px 36px rgba(16,91,151,.09);overflow:visible}
+.nav{height:78px;gap:28px}
+.brand{min-width:250px}
+.brand-image-wrap{width:250px;height:66px}
+.nav-links{justify-content:center;gap:clamp(14px,2.5vw,38px)}
+.nav-links a{color:#092b54;font-size:14px;font-weight:700;white-space:nowrap}
+.nav-links a:hover{color:#0782e4}
+.nav-actions{align-items:center}
+.ghost{border-color:#d6e7f5;color:#075ba5}
+.primary{background:linear-gradient(135deg,#0587e9,#0871cf);box-shadow:0 8px 22px rgba(0,126,224,.2)}
+.hero{margin-top:0;min-height:510px;background-image:linear-gradient(90deg,rgba(245,251,255,.97) 0%,rgba(245,251,255,.90) 38%,rgba(245,251,255,.32) 61%,rgba(245,251,255,.02) 100%),var(--refinery-bg);background-position:center;background-size:cover}
+.hero:before{background:linear-gradient(90deg,rgba(248,252,255,.48),transparent 74%),radial-gradient(circle at 72% 42%,rgba(0,145,232,.08),transparent 38%)}
+.hero:after{height:45px;background:linear-gradient(180deg,transparent,rgba(255,255,255,.36))}
+.hero-grid{grid-template-columns:minmax(0,1fr);min-height:510px;display:flex;align-items:center}
+.hero-copy{padding:48px 0 54px;max-width:700px;width:57%;position:relative}
+.hero-inline-brand{width:min(100%,510px);height:auto;max-height:145px;object-fit:contain;object-position:left center;display:block;margin:0 0 10px}
+.hero h1{font-size:clamp(34px,3.6vw,54px);line-height:1.35;letter-spacing:-1.1px;margin:8px 0 7px;color:#082c59;font-weight:800}
+.hero p{font-size:clamp(16px,1.6vw,23px);font-weight:500;color:#42658a;max-width:580px;margin:0 0 23px}
+.hero-actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.hero-cta{border-radius:999px;padding:13px 26px;font-size:15px;min-height:52px}
+.hero-cta span{margin-right:9px;font-size:19px}
+.hero-login-link{background:rgba(255,255,255,.72);border:1px solid rgba(8,111,196,.18);color:#075ba5;border-radius:999px;padding:12px 22px;font-weight:700}
+.hero-search-wrap{margin-top:22px;max-width:610px}
+.hero-search-wrap .search-box{box-shadow:0 10px 35px rgba(20,83,132,.09);border:1px solid rgba(25,118,190,.1)}
+.hero-qr{display:none}
+.hero-card{display:none}
+.app-top{padding:32px 0;background:linear-gradient(135deg,#f8fcff,#e8f5ff 55%,#fff);color:#0a2d52;border-top:1px solid #dcecf8;border-bottom:1px solid #e2eff8}
+.app-top h3{font-size:27px;color:#092f59}
+.app-top p{color:#4d7192;font-size:13px}
+.app-top-btn{background:#fff;color:#103a63;border:1px solid #d9e9f5;box-shadow:0 9px 28px rgba(21,90,144,.09);min-height:66px}
+.app-top-btn.android{background:#06254a;color:#fff;border-color:#06254a}
+.app-top-btn.ios{background:#fff;color:#103a63}
+.app-qr{background:#fff;border-color:#d7e8f5}
+.stats{background:#fff}
+.stats-grid{padding:24px 0}
+.stats-grid strong{color:#087bd4}
+.section{padding:68px 0;background:linear-gradient(180deg,#f7fbff,#fff)}
+.section-head h2{color:#0b2e53;font-size:30px}
+.kicker{color:#0781d9}
+.category-grid{gap:16px}
+.category{border-color:#deebf5;border-radius:20px;box-shadow:0 7px 24px rgba(13,70,117,.035);transition:transform .2s ease,box-shadow .2s ease}
+.category:hover{box-shadow:0 15px 30px rgba(13,70,117,.09)}
+.category span{background:#e5f4ff;color:#0879d3}
+.listings{background:linear-gradient(180deg,#f8fcff,#edf7ff)}
+.new-offer-panel{border-color:#d7e9f7;box-shadow:0 16px 40px rgba(13,70,117,.07)}
+.how{background:linear-gradient(180deg,#eff8ff,#f8fbff)}
+.step{border-color:#dcebf6;box-shadow:0 8px 25px rgba(13,70,117,.04)}
+.cta{background:radial-gradient(circle at 78% 20%,rgba(60,194,255,.25),transparent 30%),linear-gradient(115deg,#0877c8,#063568 72%,#061f40)}
+.app-download{background:#fff;border-top:1px solid #e0edf7}
+footer{background:#071f3c}
+@media(max-width:1000px){.nav{gap:14px}.brand{min-width:180px}.brand-image-wrap{width:190px}.nav-links{gap:12px}.nav-links a{font-size:12px}.nav-actions{gap:6px}.ghost,.primary{padding:9px 12px}.hero-copy{width:65%}}
+@media(max-width:760px){
+ .topbar-inner span:last-child{display:none}
+ .header{width:calc(100% - 20px);margin-top:8px;border-radius:17px}
+ .nav{height:auto;min-height:66px;flex-wrap:wrap;justify-content:space-between;padding:8px 0;gap:8px}
+ .brand{min-width:0}.brand-image-wrap{width:175px;height:48px}
+ .nav-links{order:3;flex-basis:100%;justify-content:space-between;gap:8px;padding:4px 0 7px;overflow-x:auto}
+ .nav-links a{font-size:11px}
+ .nav-actions{gap:6px}.nav-actions .ghost,.nav-actions .primary{font-size:11px;padding:7px 10px}
+ .hero{background-image:linear-gradient(180deg,rgba(245,251,255,.93),rgba(245,251,255,.82) 47%,rgba(245,251,255,.2)),var(--refinery-bg);background-position:60% center}
+ .hero-grid{min-height:0}.hero-copy{width:100%;padding:32px 0 36px}
+ .hero-inline-brand{width:min(90%,420px);max-height:112px;margin-bottom:12px}
+ .hero h1{font-size:clamp(29px,8vw,40px);line-height:1.45}
+ .hero p{font-size:16px;line-height:1.9}
+ .hero-search-wrap{margin-top:18px}
+ .app-top{padding:24px 0}.app-top-inner{gap:18px}
+ .app-top h3{font-size:22px}
+ .app-top-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+ .app-top-btn{justify-content:center;text-align:right;min-height:60px}
+ .app-qr{display:none}
+ .stats-grid{grid-template-columns:repeat(2,1fr);gap:12px}
+ .stats-grid div{border:0;border-bottom:1px solid var(--line);padding:10px}
+ .section{padding:48px 0}.section-head h2{font-size:24px}
+ .category-grid,.listing-grid,.steps{grid-template-columns:1fr}
+ .cta-inner{align-items:flex-start;gap:20px;flex-direction:column}
+}
