@@ -303,3 +303,80 @@ footer .brand-image-wrap{background:#fff;border-color:rgba(255,255,255,.22)}
  .hero h1{font-size:28px}
  .brand-image-wrap{width:142px;height:46px}
 }
+
+
+/* ChemLink clean premium hero: remove low-resolution image that was being enlarged and blurred */
+body:before{content:none!important;background:none!important;filter:none!important}
+.hero{
+  background-color:#f4faff!important;
+  background-image:
+    radial-gradient(ellipse at 12% 18%,rgba(0,155,235,.16) 0,transparent 33%),
+    radial-gradient(ellipse at 86% 78%,rgba(0,111,206,.11) 0,transparent 32%),
+    linear-gradient(118deg,#f9fcff 0%,#eaf6ff 52%,#f5fbff 100%)!important;
+  background-size:cover!important;
+  background-position:center!important;
+  min-height:570px;
+}
+.hero:before{
+  inset:0;
+  background:
+    radial-gradient(circle at 14% 26%,rgba(255,255,255,.92) 0 3px,transparent 4px),
+    radial-gradient(circle at 21% 66%,rgba(16,149,219,.18) 0 2px,transparent 3px),
+    radial-gradient(circle at 9% 78%,rgba(16,149,219,.12) 0 4px,transparent 5px),
+    linear-gradient(90deg,rgba(255,255,255,.18),transparent 65%)!important;
+  opacity:1!important;
+}
+.hero:after{
+  height:18px!important;
+  background:linear-gradient(180deg,transparent,rgba(9,90,151,.05))!important;
+}
+/* Give the wordmark real breathing room: show the entire logo, never crop it */
+.hero-inline-brand{
+  display:block!important;
+  width:min(100%,560px)!important;
+  height:150px!important;
+  max-height:none!important;
+  padding:12px 18px!important;
+  object-fit:contain!important;
+  object-position:center!important;
+  margin:0 0 14px auto!important;
+  border:1px solid rgba(201,226,246,.95)!important;
+  border-radius:18px!important;
+  background:rgba(255,255,255,.96)!important;
+  box-shadow:0 12px 32px rgba(13,76,125,.10),inset 0 1px 0 #fff!important;
+}
+.brand-image-wrap{
+  overflow:visible!important;
+  width:260px!important;
+  height:72px!important;
+  padding:5px 9px!important;
+  border:1px solid #dcecf8!important;
+  border-radius:14px!important;
+  background:#fff!important;
+  box-shadow:0 5px 18px rgba(14,74,121,.07)!important;
+}
+.brand-image{
+  display:block!important;
+  width:100%!important;
+  height:100%!important;
+  max-width:100%!important;
+  max-height:100%!important;
+  object-fit:contain!important;
+  object-position:center!important;
+}
+footer .brand-image-wrap{background:#fff!important}
+@media(max-width:1000px){
+ .hero{min-height:520px}
+ .hero-inline-brand{width:min(100%,500px)!important;height:128px!important}
+ .brand-image-wrap{width:210px!important;height:62px!important}
+}
+@media(max-width:760px){
+ .hero{min-height:0}
+ .hero-copy{width:100%!important;padding:34px 0 38px!important}
+ .hero-inline-brand{width:min(100%,440px)!important;height:112px!important;margin:0 auto 14px!important;padding:9px 12px!important}
+ .brand-image-wrap{width:175px!important;height:52px!important;padding:3px 6px!important}
+}
+@media(max-width:420px){
+ .hero-inline-brand{height:92px!important}
+ .brand-image-wrap{width:150px!important;height:47px!important}
+}
