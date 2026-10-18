@@ -92,6 +92,9 @@ jobs:
       - name: Apply admin supplier and consumer management
         run: python3 scripts/add-admin-user-management.py
 
+      - name: Apply premium ChemLink home design
+        run: python3 scripts/apply-chemlink-premium-home.py
+
       - name: Verify injected cloud persistence in build sources
         run: |
           grep -q 'CloudStore.loadUser' app/src/main/java/com/dehghanzadeh/chemtrade/EntryActivity.kt
