@@ -26,7 +26,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -74,10 +73,10 @@ private data class Offer(
 
 private data class UserAccount(val phone: String, val type: String, val name: String = "", val company: String = "")
 
-private val Navy = Color(0xFF082C59)
-private val Blue = Color(0xFF087FE0)
-private val Gold = Color(0xFF20AEE8)
-private val Cream = Color(0xFFF3F9FF)
+private val Navy = Color(0xFF0B1F33)
+private val Blue = Color(0xFF1565A8)
+private val Gold = Color(0xFFC8A24A)
+private val Cream = Color(0xFFFBF6EE)
 private val Green = Color(0xFF2E7D5B)
 private val Red = Color(0xFFB3261E)
 private const val ADMIN_PHONE = "09357236476"
@@ -252,46 +251,18 @@ private fun MainScreen() {
 @Composable
 private fun MarketPage(modifier: Modifier, offers: List<Offer>, query: String, onQuery: (String) -> Unit, onAdminUnlock: () -> Unit, open: (Offer) -> Unit) {
     val visible = offers.filter { it.status == Status.APPROVED && (query.isBlank() || it.name.contains(query, true)) }
-    LazyColumn(modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
             HiddenAdminBrand(onAdminUnlock)
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(26.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-                elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
-            ) {
-                Box(
-                    Modifier.fillMaxWidth().background(
-                        Brush.linearGradient(listOf(Color(0xFF087FE0), Color(0xFF0755A3), Color(0xFF062B59)))
-                    ).padding(20.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("CHEMLINK  •  B2B MARKETPLACE", style = MaterialTheme.typography.labelSmall, color = Color(0xFFBDEBFF), fontWeight = FontWeight.Bold)
-                            Text("تأمین و تجارت مواد شیمیایی", style = MaterialTheme.typography.headlineSmall, color = Color.White, fontWeight = FontWeight.ExtraBold)
-                            Text("با تکیه بر اعتماد، کیفیت و تأمین پایدار", style = MaterialTheme.typography.bodyMedium, color = Color(0xFFE4F5FF))
-                        }
-                        Image(painterResource(R.drawable.ic_chemtrade_logo), "لوگوی ChemLink", Modifier.size(76.dp))
-                    }
-                }
-            }
-            Spacer(Modifier.height(4.dp))
-            OutlinedTextField(
-                query, onQuery, Modifier.fillMaxWidth(), singleLine = true,
-                shape = RoundedCornerShape(16.dp), label = { Text("جستجوی ماده شیمیایی") },
-                placeholder = { Text("مثلاً مونو اتانول آمین، متانول، استون…") }
-            )
-            Spacer(Modifier.height(5.dp))
-            Text("آگهی‌های تأییدشده", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = Navy)
-            Text("محصولات بازار پس از تأیید مدیریت نمایش داده می‌شوند.", style = MaterialTheme.typography.bodySmall, color = Color(0xFF58718A))
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(query, onQuery, Modifier.fillMaxWidth(), singleLine = true, label = { Text("جستجوی ماده") }, placeholder = { Text("مثلاً منواتانول آمین") })
+            Spacer(Modifier.height(6.dp)); Text("آگهی‌های تأییدشده", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
         }
         items(visible, key = { it.id }) { offer ->
-            Card(Modifier.fillMaxWidth().clickable { open(offer) }, shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(2.dp)) {
+            Card(Modifier.fillMaxWidth().clickable { open(offer) }, shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(2.dp)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text(offer.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = Navy)
-                        Text("تأیید شده", color = Green, style = MaterialTheme.typography.labelMedium)
+                        Text(offer.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold); Text("تأیید شده", color = Green, style = MaterialTheme.typography.labelMedium)
                     }
                     if (offer.publishedOfficial.isNotBlank()) Text("قیمت رسمی: ${offer.publishedOfficial}", fontWeight = FontWeight.SemiBold)
                     if (offer.publishedMarket.isNotBlank()) Text("قیمت بازار: ${offer.publishedMarket}", fontWeight = FontWeight.SemiBold)
@@ -300,11 +271,7 @@ private fun MarketPage(modifier: Modifier, offers: List<Offer>, query: String, o
                 }
             }
         }
-        if (visible.isEmpty()) item {
-            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
-                Text("آگهی تأییدشده‌ای برای نمایش وجود ندارد.", Modifier.padding(20.dp), color = Color(0xFF58718A))
-            }
-        }
+        if (visible.isEmpty()) item { Text("آگهی تأییدشده‌ای برای نمایش وجود ندارد.") }
     }
 }
 
