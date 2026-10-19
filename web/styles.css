@@ -342,3 +342,38 @@ body:before{content:initial!important}
   .hero{background-image:linear-gradient(180deg,rgba(248,252,255,.94) 0%,rgba(245,251,255,.88) 43%,rgba(231,246,255,.32) 100%),var(--refinery-bg)!important;background-position:58% center!important}
   .hero-inline-brand{width:min(100%,440px)!important;height:auto!important;padding:0!important;margin:0 auto 14px!important}
 }
+
+
+/* Final targeted correction: keep the approved refinery image visible and render the logo at its natural ratio */
+.hero{
+  background-color:#eaf6ff!important;
+  background-image:
+    linear-gradient(90deg,rgba(241,249,255,.12) 0%,rgba(241,249,255,.36) 40%,rgba(248,252,255,.84) 72%,rgba(248,252,255,.92) 100%),
+    var(--refinery-bg)!important;
+  background-repeat:no-repeat!important;
+  background-position:center center!important;
+  background-size:cover!important;
+}
+.hero-inline-brand{
+  display:block!important;
+  width:min(100%,790px)!important;
+  height:auto!important;
+  min-height:0!important;
+  max-height:none!important;
+  aspect-ratio:unset!important;
+  object-fit:unset!important;
+  object-position:center!important;
+  padding:0!important;
+  margin:0 0 14px auto!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  overflow:visible!important;
+}
+.hero-copy{overflow:visible!important}
+.hero-card{display:none!important}
+@media(max-width:760px){
+ .hero{background-image:linear-gradient(180deg,rgba(248,252,255,.78),rgba(245,251,255,.48) 55%,rgba(231,246,255,.10)),var(--refinery-bg)!important;background-position:58% center!important;background-size:cover!important}
+ .hero-inline-brand{width:min(100%,790px)!important;height:auto!important}
+}
