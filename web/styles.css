@@ -394,3 +394,29 @@ body:before{content:initial!important}
     background-repeat:no-repeat!important;
   }
 }
+
+/* Hero image and brand are independent layers: no composite-image crop. */
+.hero{
+ background-color:#edf7fc!important;
+ background-image:linear-gradient(90deg,rgba(240,249,255,.03) 0%,rgba(240,249,255,.12) 42%,rgba(247,252,255,.82) 68%,rgba(247,252,255,.97) 100%),var(--refinery-bg)!important;
+ background-repeat:no-repeat!important;
+ background-size:cover!important;
+ background-position:center center!important;
+}
+.hero-inline-brand{
+ display:block!important;
+ width:min(100%,660px)!important;
+ height:auto!important;
+ max-height:none!important;
+ aspect-ratio:auto!important;
+ object-fit:contain!important;
+ object-position:center!important;
+ margin:0 0 20px auto!important;
+ padding:0!important;
+ overflow:visible!important;
+}
+.hero-copy{overflow:visible!important;min-height:0!important}
+@media(max-width:760px){
+ .hero{background-image:linear-gradient(180deg,rgba(247,252,255,.91),rgba(247,252,255,.54) 54%,rgba(231,246,255,.15) 100%),var(--refinery-bg)!important;background-size:auto 100%!important;background-position:left center!important}
+ .hero-inline-brand{width:min(100%,520px)!important;margin:0 auto 18px!important}
+}
