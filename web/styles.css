@@ -379,31 +379,18 @@ body:before{content:initial!important}
 }
 
 
-/* 2026-10-19: fix hero image crop and give the complete brand mark room */
+
+
+/* Correct hero background to fill the full banner; keep logo independently sized */
 .hero{
-  background-position:left center!important;
-  background-size:auto 100%!important;
+  background-size:cover!important;
+  background-position:center center!important;
   background-repeat:no-repeat!important;
 }
-.hero-inline-brand{
-  width:min(100%,790px)!important;
-  height:auto!important;
-  max-height:none!important;
-  object-fit:contain!important;
-  object-position:center!important;
-  overflow:visible!important;
-  margin-bottom:22px!important;
-}
-.hero-copy{overflow:visible!important;min-height:0!important}
 @media(max-width:760px){
   .hero{
-    background-position:left top!important;
-    background-size:auto 72%!important;
+    background-size:cover!important;
+    background-position:center center!important;
     background-repeat:no-repeat!important;
-  }
-  .hero-inline-brand{
-    width:min(100%,100%)!important;
-    height:auto!important;
-    margin:0 auto 22px!important;
   }
 }
