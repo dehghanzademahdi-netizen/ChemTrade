@@ -377,3 +377,33 @@ body:before{content:initial!important}
  .hero{background-image:linear-gradient(180deg,rgba(248,252,255,.78),rgba(245,251,255,.48) 55%,rgba(231,246,255,.10)),var(--refinery-bg)!important;background-position:58% center!important;background-size:cover!important}
  .hero-inline-brand{width:min(100%,790px)!important;height:auto!important}
 }
+
+
+/* 2026-10-19: fix hero image crop and give the complete brand mark room */
+.hero{
+  background-position:left center!important;
+  background-size:auto 100%!important;
+  background-repeat:no-repeat!important;
+}
+.hero-inline-brand{
+  width:min(100%,790px)!important;
+  height:auto!important;
+  max-height:none!important;
+  object-fit:contain!important;
+  object-position:center!important;
+  overflow:visible!important;
+  margin-bottom:22px!important;
+}
+.hero-copy{overflow:visible!important;min-height:0!important}
+@media(max-width:760px){
+  .hero{
+    background-position:left top!important;
+    background-size:auto 72%!important;
+    background-repeat:no-repeat!important;
+  }
+  .hero-inline-brand{
+    width:min(100%,100%)!important;
+    height:auto!important;
+    margin:0 auto 22px!important;
+  }
+}
