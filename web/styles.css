@@ -513,7 +513,7 @@ body{background:#f5f9fc}
 /* Reference-layout correction: use the actual refinery photo and place the brand/content on the right */
 .hero{
  background-color:#eaf5ff!important;
- background-image:linear-gradient(90deg,rgba(245,250,255,.00) 0%,rgba(245,250,255,.04) 30%,rgba(248,252,255,.58) 51%,rgba(248,252,255,.94) 72%,#f8fcff 100%),url("https://upload.wikimedia.org/wikipedia/commons/c/c2/Heydar_Aliyev_Baku_Oil_Refinery_in_2025.jpg")!important;
+ background-image:linear-gradient(90deg,rgba(245,250,255,.00) 0%,rgba(245,250,255,.04) 30%,rgba(248,252,255,.58) 51%,rgba(248,252,255,.94) 72%,#f8fcff 100%),url("https://upload.wikimedia.org/wikipedia/commons/4/4e/Heydar_Aliyev_Baku_Oil_Refinery_3.jpg")!important;
  background-repeat:no-repeat!important;background-size:100% 100%,auto 100%!important;background-position:center,left center!important;
  min-height:535px!important;overflow:hidden!important;
 }
@@ -522,7 +522,7 @@ body{background:#f5f9fc}
 .hero-inline-brand{display:block!important;width:min(100%,470px)!important;max-height:none!important;height:auto!important;object-fit:contain!important;object-position:right center!important;margin:0 0 10px auto!important}
 .hero-card{display:none!important}
 @media(max-width:760px){
- .hero{background-image:linear-gradient(180deg,rgba(248,252,255,.96) 0%,rgba(248,252,255,.88) 42%,rgba(232,245,255,.32) 100%),url("https://upload.wikimedia.org/wikipedia/commons/c/c2/Heydar_Aliyev_Baku_Oil_Refinery_in_2025.jpg")!important;background-size:100% 100%,auto 68%!important;background-position:center,left bottom!important}
+ .hero{background-image:linear-gradient(180deg,rgba(248,252,255,.96) 0%,rgba(248,252,255,.88) 42%,rgba(232,245,255,.32) 100%),url("https://upload.wikimedia.org/wikipedia/commons/4/4e/Heydar_Aliyev_Baku_Oil_Refinery_3.jpg")!important;background-size:100% 100%,auto 68%!important;background-position:center,left bottom!important}
  .hero-grid{min-height:0!important;justify-content:center!important}
  .hero-copy{width:100%!important;margin:0!important;padding:30px 0!important;text-align:center!important}
  .hero-inline-brand{width:min(100%,380px)!important;margin:0 auto 12px!important}
@@ -573,7 +573,7 @@ body{background:#f5f9fc}
  background-color:#eaf5ff!important;
  background-image:
   linear-gradient(270deg,rgba(248,252,255,.96) 0%,rgba(245,251,255,.88) 27%,rgba(240,249,255,.52) 48%,rgba(231,246,255,.08) 76%,rgba(231,246,255,0) 100%),
-  url("https://upload.wikimedia.org/wikipedia/commons/c/c2/Heydar_Aliyev_Baku_Oil_Refinery_in_2025.jpg")!important;
+  url("https://upload.wikimedia.org/wikipedia/commons/4/4e/Heydar_Aliyev_Baku_Oil_Refinery_3.jpg")!important;
  background-repeat:no-repeat!important;
  background-size:100% 100%,auto 100%!important;
  background-position:center,left center!important;
@@ -582,7 +582,7 @@ body{background:#f5f9fc}
 .header .brand-image{width:100%!important;height:100%!important;object-fit:contain!important;object-position:center!important}
 @media(max-width:1000px){.header .brand-image-wrap{width:230px!important;height:34px!important;flex-basis:230px!important}}
 @media(max-width:760px){
- .hero{background-image:linear-gradient(180deg,rgba(248,252,255,.94) 0%,rgba(245,251,255,.82) 42%,rgba(231,246,255,.22) 100%),url("https://upload.wikimedia.org/wikipedia/commons/c/c2/Heydar_Aliyev_Baku_Oil_Refinery_in_2025.jpg")!important;background-size:100% 100%,auto 68%!important;background-position:center,left bottom!important}
+ .hero{background-image:linear-gradient(180deg,rgba(248,252,255,.94) 0%,rgba(245,251,255,.82) 42%,rgba(231,246,255,.22) 100%),url("https://upload.wikimedia.org/wikipedia/commons/4/4e/Heydar_Aliyev_Baku_Oil_Refinery_3.jpg")!important;background-size:100% 100%,auto 68%!important;background-position:center,left bottom!important}
  .header .brand-image-wrap{width:180px!important;height:27px!important;flex-basis:180px!important}
 }
 @media(max-width:420px){.header .brand-image-wrap{width:150px!important;height:23px!important;flex-basis:150px!important}}
@@ -673,7 +673,7 @@ body{background:#f5f9fc}
 .header .brand-image{position:static!important;width:100%!important;height:auto!important;max-width:100%!important;max-height:none!important;object-fit:contain!important;object-position:center!important}
 .header .nav-links{flex:1 1 auto!important;justify-content:space-around!important;gap:16px!important}
 .header .nav-actions{flex:0 0 auto!important;gap:8px!important}
-.hero{min-height:530px!important;background-color:#eaf5fd!important;background-image:linear-gradient(270deg,rgba(248,252,255,.98) 0%,rgba(248,252,255,.91) 32%,rgba(242,249,253,.55) 53%,rgba(231,242,249,.04) 100%),url("https://upload.wikimedia.org/wikipedia/commons/c/c2/Heydar_Aliyev_Baku_Oil_Refinery_in_2025.jpg")!important;background-repeat:no-repeat!important;background-size:cover!important;background-position:center center!important}
+.hero{min-height:530px!important;background-color:#eaf5fd!important;background-image:linear-gradient(270deg,rgba(248,252,255,.98) 0%,rgba(248,252,255,.91) 32%,rgba(242,249,253,.55) 53%,rgba(231,242,249,.04) 100%),url("https://upload.wikimedia.org/wikipedia/commons/4/4e/Heydar_Aliyev_Baku_Oil_Refinery_3.jpg")!important;background-repeat:no-repeat!important;background-size:cover!important;background-position:center center!important}
 .hero:before{background:linear-gradient(270deg,rgba(255,255,255,.12),rgba(255,255,255,0) 68%)!important}
 .hero-grid{min-height:530px!important;display:flex!important;flex-direction:row!important;direction:rtl!important;align-items:center!important;justify-content:space-between!important;gap:24px!important}
 .hero-copy{width:min(54%,700px)!important;max-width:700px!important;padding:40px 0!important;margin:0!important;text-align:right!important}
@@ -684,13 +684,13 @@ body{background:#f5f9fc}
 .app-top-actions{gap:14px!important}
 .app-brand-icon{width:34px!important;height:34px!important;object-fit:contain!important}
 @media(max-width:1000px){.header .nav{width:calc(100% - 24px)!important;gap:10px!important;padding:8px 12px!important}.header .brand-image-wrap{width:215px!important;flex-basis:215px!important}.header .nav-links{gap:8px!important}.header .nav-links a{font-size:12px!important}.header .nav-actions button{padding:8px 10px!important}.hero-copy{width:60%!important}}
-@media(max-width:760px){.header .nav{width:100%!important;min-height:0!important;border-radius:0!important;flex-wrap:wrap!important}.header .brand-image-wrap{width:190px!important;flex-basis:190px!important}.hero{min-height:620px!important;background-image:linear-gradient(180deg,rgba(248,252,255,.95) 0%,rgba(248,252,255,.84) 45%,rgba(238,247,252,.25) 100%),url("https://upload.wikimedia.org/wikipedia/commons/c/c2/Heydar_Aliyev_Baku_Oil_Refinery_in_2025.jpg")!important;background-position:center!important}.hero-grid{min-height:620px!important;align-items:flex-start!important}.hero-copy{width:100%!important;padding:35px 0!important}.hero-inline-brand{width:min(100%,400px)!important;margin:0 auto 14px!important}.app-top-inner{flex-direction:column!important;align-items:stretch!important}.app-top-actions{justify-content:center!important}}
+@media(max-width:760px){.header .nav{width:100%!important;min-height:0!important;border-radius:0!important;flex-wrap:wrap!important}.header .brand-image-wrap{width:190px!important;flex-basis:190px!important}.hero{min-height:620px!important;background-image:linear-gradient(180deg,rgba(248,252,255,.95) 0%,rgba(248,252,255,.84) 45%,rgba(238,247,252,.25) 100%),url("https://upload.wikimedia.org/wikipedia/commons/4/4e/Heydar_Aliyev_Baku_Oil_Refinery_3.jpg")!important;background-position:center!important}.hero-grid{min-height:620px!important;align-items:flex-start!important}.hero-copy{width:100%!important;padding:35px 0!important}.hero-inline-brand{width:min(100%,400px)!important;margin:0 auto 14px!important}.app-top-inner{flex-direction:column!important;align-items:stretch!important}.app-top-actions{justify-content:center!important}}
 @media(max-width:420px){.header .brand-image-wrap{width:165px!important;flex-basis:165px!important}}
 
 
 /* Final correction: use the actual refinery photo URL (not Special:FilePath, which was resolving to an unrelated image) and prevent logo artwork from being cropped. */
 .hero{
- background-image:linear-gradient(270deg,rgba(248,252,255,.98) 0%,rgba(248,252,255,.88) 31%,rgba(242,249,253,.42) 54%,rgba(231,242,249,.02) 100%),url("https://upload.wikimedia.org/wikipedia/commons/c/c2/Heydar_Aliyev_Baku_Oil_Refinery_in_2025.jpg")!important;
+ background-image:linear-gradient(270deg,rgba(248,252,255,.98) 0%,rgba(248,252,255,.88) 31%,rgba(242,249,253,.42) 54%,rgba(231,242,249,.02) 100%),url("https://upload.wikimedia.org/wikipedia/commons/4/4e/Heydar_Aliyev_Baku_Oil_Refinery_3.jpg")!important;
  background-size:cover!important;
  background-position:center center!important;
  background-repeat:no-repeat!important;
@@ -703,7 +703,7 @@ body{background:#f5f9fc}
 }
 .hero-inline-brand{width:min(100%,500px)!important;display:block!important;margin:0 0 14px auto!important}
 @media(max-width:760px){
- .hero{background-image:linear-gradient(180deg,rgba(248,252,255,.96) 0%,rgba(248,252,255,.82) 48%,rgba(238,247,252,.25) 100%),url("https://upload.wikimedia.org/wikipedia/commons/c/c2/Heydar_Aliyev_Baku_Oil_Refinery_in_2025.jpg")!important;background-position:center center!important}
+ .hero{background-image:linear-gradient(180deg,rgba(248,252,255,.96) 0%,rgba(248,252,255,.82) 48%,rgba(238,247,252,.25) 100%),url("https://upload.wikimedia.org/wikipedia/commons/4/4e/Heydar_Aliyev_Baku_Oil_Refinery_3.jpg")!important;background-position:center center!important}
 }
 
 /* Repair: restore the known working Commons redirect and make the complete wordmark/tagline legible. */
@@ -716,8 +716,8 @@ body{background:#f5f9fc}
 @media(max-width:760px){.header .brand-image-wrap{width:210px!important;flex-basis:210px!important}.hero-inline-brand{width:min(100%,420px)!important}}
 
 /* Hard final override: actual refinery image URL + full-size wordmark, cache-busted by index.html. */
-.hero{background-color:#eaf5fd!important;background-image:linear-gradient(270deg,rgba(248,252,255,.97) 0%,rgba(248,252,255,.86) 31%,rgba(242,249,253,.34) 55%,rgba(231,242,249,.02) 100%),url("https://upload.wikimedia.org/wikipedia/commons/c/c2/Heydar_Aliyev_Baku_Oil_Refinery_in_2025.jpg")!important;background-repeat:no-repeat!important;background-size:cover!important;background-position:center center!important}
+.hero{background-color:#eaf5fd!important;background-image:linear-gradient(270deg,rgba(248,252,255,.97) 0%,rgba(248,252,255,.86) 31%,rgba(242,249,253,.34) 55%,rgba(231,242,249,.02) 100%),url("https://upload.wikimedia.org/wikipedia/commons/4/4e/Heydar_Aliyev_Baku_Oil_Refinery_3.jpg")!important;background-repeat:no-repeat!important;background-size:cover!important;background-position:center center!important}
 .header .brand-image-wrap{width:330px!important;height:auto!important;min-height:0!important;flex:0 0 330px!important;overflow:visible!important;background:transparent!important}
 .header .brand-image{display:block!important;width:100%!important;height:auto!important;max-height:none!important;object-fit:contain!important}
 .hero-inline-brand{display:block!important;width:min(100%,560px)!important;height:auto!important;max-height:none!important;object-fit:contain!important;object-position:right center!important;margin:0 0 14px auto!important}
-@media(max-width:760px){.hero{background-image:linear-gradient(180deg,rgba(248,252,255,.96) 0%,rgba(248,252,255,.82) 48%,rgba(238,247,252,.25) 100%),url("https://upload.wikimedia.org/wikipedia/commons/c/c2/Heydar_Aliyev_Baku_Oil_Refinery_in_2025.jpg")!important;background-position:center center!important}.header .brand-image-wrap{width:220px!important;flex-basis:220px!important}.hero-inline-brand{width:min(100%,420px)!important}}
+@media(max-width:760px){.hero{background-image:linear-gradient(180deg,rgba(248,252,255,.96) 0%,rgba(248,252,255,.82) 48%,rgba(238,247,252,.25) 100%),url("https://upload.wikimedia.org/wikipedia/commons/4/4e/Heydar_Aliyev_Baku_Oil_Refinery_3.jpg")!important;background-position:center center!important}.header .brand-image-wrap{width:220px!important;flex-basis:220px!important}.hero-inline-brand{width:min(100%,420px)!important}}
