@@ -548,3 +548,21 @@ body{background:#f5f9fc}
     background-position:center,left bottom!important;
   }
 }
+
+
+/* Final targeted fixes: complete ChemLink wordmark and match approved refinery hero */
+.header .nav{min-height:88px!important;height:auto!important;overflow:visible!important}
+.header .brand{min-width:0!important;flex:0 0 auto!important;overflow:visible!important}
+.header .brand-image-wrap{width:290px!important;height:78px!important;min-width:0!important;min-height:0!important;padding:0!important;overflow:visible!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;flex:0 0 auto!important}
+.header .brand-image{display:block!important;width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;object-fit:contain!important;object-position:center!important;overflow:visible!important}
+.hero{background-color:#eaf5ff!important;background-image:linear-gradient(270deg,rgba(248,252,255,.97) 0%,rgba(245,251,255,.91) 28%,rgba(240,249,255,.62) 48%,rgba(231,246,255,.12) 76%,rgba(231,246,255,.02) 100%),var(--refinery-bg)!important;background-repeat:no-repeat!important;background-size:cover!important;background-position:center center!important;overflow:hidden!important}
+.hero-copy{overflow:visible!important}
+.hero-inline-brand{display:block!important;width:min(100%,560px)!important;height:auto!important;min-height:0!important;max-height:none!important;aspect-ratio:auto!important;object-fit:contain!important;object-position:center!important;padding:0!important;margin:0 0 14px auto!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important}
+@media(max-width:1000px){.header .nav{min-height:80px!important}.header .brand-image-wrap{width:230px!important;height:64px!important}}
+@media(max-width:760px){
+ .header .nav{min-height:0!important;height:auto!important}
+ .header .brand-image-wrap{width:180px!important;height:54px!important}
+ .hero{background-image:linear-gradient(180deg,rgba(248,252,255,.92) 0%,rgba(245,251,255,.78) 42%,rgba(231,246,255,.16) 100%),var(--refinery-bg)!important;background-position:center center!important;background-size:cover!important}
+ .hero-inline-brand{width:min(100%,440px)!important;height:auto!important;margin:0 auto 14px!important}
+}
+@media(max-width:420px){.header .brand-image-wrap{width:150px!important;height:46px!important}}
