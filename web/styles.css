@@ -566,3 +566,23 @@ body{background:#f5f9fc}
  .hero-inline-brand{width:min(100%,440px)!important;height:auto!important;margin:0 auto 14px!important}
 }
 @media(max-width:420px){.header .brand-image-wrap{width:150px!important;height:46px!important}}
+
+
+/* Verified root cause fix: define the refinery image directly in the final hero rule (the old --refinery-bg variable was undefined). */
+.hero{
+ background-color:#eaf5ff!important;
+ background-image:
+  linear-gradient(270deg,rgba(248,252,255,.96) 0%,rgba(245,251,255,.88) 27%,rgba(240,249,255,.52) 48%,rgba(231,246,255,.08) 76%,rgba(231,246,255,0) 100%),
+  url("https://commons.wikimedia.org/wiki/Special:FilePath/Heydar_Aliyev_Baku_Oil_Refinery_in_2025.jpg")!important;
+ background-repeat:no-repeat!important;
+ background-size:100% 100%,auto 100%!important;
+ background-position:center,left center!important;
+}
+.header .brand-image-wrap{width:290px!important;height:42px!important;overflow:visible!important;flex:0 0 290px!important}
+.header .brand-image{width:100%!important;height:100%!important;object-fit:contain!important;object-position:center!important}
+@media(max-width:1000px){.header .brand-image-wrap{width:230px!important;height:34px!important;flex-basis:230px!important}}
+@media(max-width:760px){
+ .hero{background-image:linear-gradient(180deg,rgba(248,252,255,.94) 0%,rgba(245,251,255,.82) 42%,rgba(231,246,255,.22) 100%),url("https://commons.wikimedia.org/wiki/Special:FilePath/Heydar_Aliyev_Baku_Oil_Refinery_in_2025.jpg")!important;background-size:100% 100%,auto 68%!important;background-position:center,left bottom!important}
+ .header .brand-image-wrap{width:180px!important;height:27px!important;flex-basis:180px!important}
+}
+@media(max-width:420px){.header .brand-image-wrap{width:150px!important;height:23px!important;flex-basis:150px!important}}
