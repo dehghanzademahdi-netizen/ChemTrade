@@ -607,3 +607,41 @@ body{background:#f5f9fc}
  .hero-inline-brand{width:min(100%,440px)!important;margin:0 auto 14px!important}
 }
 @media(max-width:420px){.header .brand-image-wrap{width:170px!important;height:40px!important;flex-basis:170px!important}}
+
+
+/* ChemLink: show the complete logo artwork, including its lower tagline */
+.header .brand-image-wrap,
+.footer-brand .brand-image-wrap{
+  width:300px!important;
+  height:auto!important;
+  min-height:0!important;
+  flex:0 0 auto!important;
+  overflow:visible!important;
+  display:flex!important;
+  align-items:center!important;
+}
+.header .brand-image,
+.footer-brand .brand-image{
+  position:static!important;
+  display:block!important;
+  width:100%!important;
+  height:auto!important;
+  max-width:100%!important;
+  max-height:none!important;
+  min-height:0!important;
+  object-fit:contain!important;
+  object-position:center!important;
+  overflow:visible!important;
+}
+.header .nav{min-height:104px!important}
+@media(max-width:1000px){
+ .header .brand-image-wrap{width:250px!important;height:auto!important;flex-basis:auto!important}
+ .header .nav{min-height:92px!important}
+}
+@media(max-width:760px){
+ .header .brand-image-wrap{width:205px!important;height:auto!important;flex-basis:auto!important}
+ .header .nav{min-height:0!important}
+}
+@media(max-width:420px){
+ .header .brand-image-wrap{width:170px!important;height:auto!important;flex-basis:auto!important}
+}
