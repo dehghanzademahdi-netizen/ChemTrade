@@ -690,7 +690,7 @@ body{background:#f5f9fc}
 
 /* Final correction: use the actual refinery photo URL (not Special:FilePath, which was resolving to an unrelated image) and prevent logo artwork from being cropped. */
 .hero{
- background-image:linear-gradient(270deg,rgba(248,252,255,.98) 0%,rgba(248,252,255,.88) 31%,rgba(242,249,253,.42) 54%,rgba(231,242,249,.02) 100%),url("https://upload.wikimedia.org/wikipedia/commons/c/c2/Heydar_Aliyev_Baku_Oil_Refinery_in_2025.jpg")!important;
+ background-image:linear-gradient(270deg,rgba(248,252,255,.98) 0%,rgba(248,252,255,.88) 31%,rgba(242,249,253,.42) 54%,rgba(231,242,249,.02) 100%),url("https://commons.wikimedia.org/wiki/Special:FilePath/Heydar_Aliyev_Baku_Oil_Refinery_in_2025.jpg")!important;
  background-size:cover!important;
  background-position:center center!important;
  background-repeat:no-repeat!important;
@@ -703,5 +703,14 @@ body{background:#f5f9fc}
 }
 .hero-inline-brand{width:min(100%,500px)!important;display:block!important;margin:0 0 14px auto!important}
 @media(max-width:760px){
- .hero{background-image:linear-gradient(180deg,rgba(248,252,255,.96) 0%,rgba(248,252,255,.82) 48%,rgba(238,247,252,.25) 100%),url("https://upload.wikimedia.org/wikipedia/commons/c/c2/Heydar_Aliyev_Baku_Oil_Refinery_in_2025.jpg")!important;background-position:center center!important}
+ .hero{background-image:linear-gradient(180deg,rgba(248,252,255,.96) 0%,rgba(248,252,255,.82) 48%,rgba(238,247,252,.25) 100%),url("https://commons.wikimedia.org/wiki/Special:FilePath/Heydar_Aliyev_Baku_Oil_Refinery_in_2025.jpg")!important;background-position:center center!important}
 }
+
+/* Repair: restore the known working Commons redirect and make the complete wordmark/tagline legible. */
+.header .brand-image-wrap{width:330px!important;flex:0 0 330px!important}
+.header .brand-image{width:100%!important;height:auto!important;max-width:100%!important;object-fit:contain!important}
+.hero-inline-brand{width:min(100%,560px)!important;height:auto!important;max-height:none!important;object-fit:contain!important}
+.footer-brand .brand-image-wrap{width:280px!important}
+.footer-brand .brand-image{width:100%!important;height:auto!important;object-fit:contain!important}
+@media(max-width:1000px){.header .brand-image-wrap{width:240px!important;flex-basis:240px!important}.hero-inline-brand{width:min(100%,460px)!important}}
+@media(max-width:760px){.header .brand-image-wrap{width:210px!important;flex-basis:210px!important}.hero-inline-brand{width:min(100%,420px)!important}}
