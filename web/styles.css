@@ -586,3 +586,24 @@ body{background:#f5f9fc}
  .header .brand-image-wrap{width:180px!important;height:27px!important;flex-basis:180px!important}
 }
 @media(max-width:420px){.header .brand-image-wrap{width:150px!important;height:23px!important;flex-basis:150px!important}}
+
+
+/* Final visual repair: full logo, and a properly framed refinery photograph across the hero. */
+.header .nav{height:auto!important;min-height:100px!important;overflow:visible!important}
+.header .brand{width:auto!important;min-width:0!important;flex:0 0 auto!important;overflow:visible!important}
+.header .brand-image-wrap{display:block!important;width:360px!important;height:82px!important;flex:0 0 360px!important;overflow:visible!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important}
+.header .brand-image{display:block!important;width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;object-fit:contain!important;object-position:center!important;overflow:visible!important}
+.hero{background-color:#eef6fb!important;background-image:linear-gradient(270deg,rgba(248,252,255,.98) 0%,rgba(248,252,255,.93) 30%,rgba(242,249,253,.72) 49%,rgba(231,242,249,.18) 72%,rgba(231,242,249,.02) 100%),url("https://www.gevernova.com/power-conversion/sites/default/files/styles/resource_banner/public/2022-01/1920x1080_Shell-Supplier.jpg?itok=pNe-ALDR")!important;background-repeat:no-repeat!important;background-size:cover!important;background-position:center center!important;overflow:hidden!important}
+.hero-grid{direction:rtl!important}
+.hero-copy{width:58%!important;max-width:760px!important;overflow:visible!important}
+.hero-inline-brand{display:block!important;width:min(100%,560px)!important;height:auto!important;max-height:none!important;object-fit:contain!important;object-position:center!important;overflow:visible!important;margin:0 0 14px auto!important}
+.hero-card{display:none!important}
+@media(max-width:1000px){.header .nav{min-height:88px!important}.header .brand-image-wrap{width:290px!important;height:66px!important;flex-basis:290px!important}}
+@media(max-width:760px){
+ .header .nav{min-height:0!important}
+ .header .brand-image-wrap{width:210px!important;height:48px!important;flex-basis:210px!important}
+ .hero{background-image:linear-gradient(180deg,rgba(248,252,255,.97) 0%,rgba(248,252,255,.91) 42%,rgba(238,247,252,.68) 70%,rgba(231,242,249,.24) 100%),url("https://www.gevernova.com/power-conversion/sites/default/files/styles/resource_banner/public/2022-01/1920x1080_Shell-Supplier.jpg?itok=pNe-ALDR")!important;background-size:cover!important;background-position:center center!important}
+ .hero-copy{width:100%!important}
+ .hero-inline-brand{width:min(100%,440px)!important;margin:0 auto 14px!important}
+}
+@media(max-width:420px){.header .brand-image-wrap{width:170px!important;height:40px!important;flex-basis:170px!important}}
