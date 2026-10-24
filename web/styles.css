@@ -721,3 +721,35 @@ body{background:#f5f9fc}
 .header .brand-image{display:block!important;width:100%!important;height:auto!important;max-height:none!important;object-fit:contain!important}
 .hero-inline-brand{display:block!important;width:min(100%,560px)!important;height:auto!important;max-height:none!important;object-fit:contain!important;object-position:right center!important;margin:0 0 14px auto!important}
 @media(max-width:760px){.hero{background-image:linear-gradient(180deg,rgba(248,252,255,.96) 0%,rgba(248,252,255,.82) 48%,rgba(238,247,252,.25) 100%),url("https://upload.wikimedia.org/wikipedia/commons/4/4e/Heydar_Aliyev_Baku_Oil_Refinery_3.jpg")!important;background-position:center center!important}.header .brand-image-wrap{width:220px!important;flex-basis:220px!important}.hero-inline-brand{width:min(100%,420px)!important}}
+
+
+/* ChemLink homepage layout repair: keep the refinery visible on the LEFT and the complete copy/logo on the RIGHT. */
+.hero{
+ min-height:560px!important;
+ background-color:#edf6fc!important;
+ background-image:linear-gradient(270deg,rgba(250,253,255,.99) 0%,rgba(250,253,255,.94) 34%,rgba(246,251,255,.68) 50%,rgba(237,246,252,.08) 73%,rgba(237,246,252,0) 100%),url("https://upload.wikimedia.org/wikipedia/commons/4/4e/Heydar_Aliyev_Baku_Oil_Refinery_3.jpg")!important;
+ background-repeat:no-repeat!important;background-size:cover!important;background-position:left center!important;
+}
+.hero-grid{min-height:560px!important;display:flex!important;flex-direction:row!important;direction:rtl!important;align-items:center!important;justify-content:flex-end!important;gap:24px!important}
+.hero-copy{width:min(52%,680px)!important;max-width:680px!important;flex:0 1 680px!important;margin-right:0!important;margin-left:0!important;padding:38px 0!important;text-align:right!important}
+.hero-inline-brand{display:block!important;width:min(100%,540px)!important;height:auto!important;max-height:none!important;object-fit:contain!important;object-position:right center!important;margin:0 0 18px auto!important}
+.hero-card{display:none!important}
+.header .nav-shell{background:rgba(255,255,255,.94)!important}
+.header .nav{border-radius:0 0 22px 22px!important;background:#fff!important;box-shadow:0 8px 30px rgba(13,38,67,.09)!important}
+.app-top{background:linear-gradient(110deg,#0b2341,#07172c)!important;color:#fff!important}
+.app-top-inner{max-width:1300px!important}
+.app-top-actions{align-items:center!important;gap:12px!important}
+.app-brand-icon{width:36px!important;height:36px!important;object-fit:contain!important}
+@media(max-width:1000px){
+ .hero-copy{width:58%!important}
+ .header .brand-image-wrap{width:205px!important;flex-basis:205px!important}
+}
+@media(max-width:760px){
+ .hero{min-height:640px!important;background-image:linear-gradient(180deg,rgba(250,253,255,.96) 0%,rgba(250,253,255,.91) 48%,rgba(237,246,252,.3) 100%),url("https://upload.wikimedia.org/wikipedia/commons/4/4e/Heydar_Aliyev_Baku_Oil_Refinery_3.jpg")!important;background-position:35% center!important}
+ .hero-grid{min-height:640px!important;align-items:flex-start!important;justify-content:center!important}
+ .hero-copy{width:100%!important;max-width:100%!important;padding:30px 0!important}
+ .hero-inline-brand{width:min(100%,420px)!important;margin:0 auto 16px!important}
+ .header .nav{border-radius:0!important}
+ .app-top-inner{flex-direction:column!important;align-items:stretch!important}
+ .app-top-actions{justify-content:center!important}
+}
