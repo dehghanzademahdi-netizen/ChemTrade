@@ -785,6 +785,6 @@ body{background:#f5f9fc}
 
 /* Desktop refinement: move the hero copy further right, away from the refinery photo. */
 @media(min-width:761px){
- .hero-grid{justify-content:flex-start!important;padding-right:clamp(24px,4vw,76px)!important;padding-left:clamp(12px,2vw,32px)!important;box-sizing:border-box!important}
- .hero-copy{width:min(49%,660px)!important;max-width:660px!important;flex:0 1 660px!important;margin-right:0!important;margin-left:0!important;position:relative!important;z-index:2!important}
+ .hero-grid{justify-content:flex-start!important;padding-right:clamp(48px,7vw,120px)!important;padding-left:clamp(12px,2vw,32px)!important;box-sizing:border-box!important}
+ .hero-copy{width:min(49%,660px)!important;max-width:660px!important;flex:0 1 660px!important;margin-right:0!important;margin-left:0!important;transform:translateX(34px)!important;position:relative!important;z-index:2!important}
 }
