@@ -753,3 +753,31 @@ body{background:#f5f9fc}
  .app-top-inner{flex-direction:column!important;align-items:stretch!important}
  .app-top-actions{justify-content:center!important}
 }
+
+
+/* Final supplied ChemLink artwork: use the uploaded refinery photo and complete wordmark. */
+.hero{
+ background-color:#edf6fc!important;
+ background-image:linear-gradient(270deg,rgba(250,253,255,.98) 0%,rgba(250,253,255,.90) 30%,rgba(246,251,255,.60) 48%,rgba(237,246,252,.08) 72%,rgba(237,246,252,0) 100%),url("./assets/chemlink-refinery-final.jpg.jfif?v=1")!important;
+ background-repeat:no-repeat!important;background-size:cover!important;background-position:left center!important;
+}
+.hero-grid{display:flex!important;flex-direction:row!important;direction:rtl!important;align-items:center!important;justify-content:flex-end!important;gap:24px!important}
+.hero-copy{width:min(52%,680px)!important;max-width:680px!important;flex:0 1 680px!important;margin-right:0!important;margin-left:0!important;text-align:right!important}
+.hero-inline-brand{display:block!important;width:min(100%,540px)!important;height:auto!important;max-height:none!important;object-fit:contain!important;object-position:right center!important;margin:0 0 18px auto!important}
+.header .brand-image-wrap,.footer-brand .brand-image-wrap{height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important;background:transparent!important}
+.header .brand-image,.footer-brand .brand-image,.hero-inline-brand,.hero-brand-image{display:block!important;height:auto!important;max-height:none!important;min-height:0!important;object-fit:contain!important;object-position:center!important;overflow:visible!important}
+.header .brand-image-wrap{width:300px!important;flex:0 0 300px!important}
+.header .brand-image{width:100%!important;max-width:100%!important}
+.footer-brand .brand-image-wrap{width:280px!important}
+.footer-brand .brand-image{width:100%!important}
+.hero-card{display:none!important}
+@media(max-width:1000px){.header .brand-image-wrap{width:220px!important;flex-basis:220px!important}.hero-copy{width:58%!important}}
+@media(max-width:760px){
+ .hero{min-height:640px!important;background-image:linear-gradient(180deg,rgba(250,253,255,.95) 0%,rgba(250,253,255,.87) 48%,rgba(237,246,252,.25) 100%),url("./assets/chemlink-refinery-final.jpg.jfif?v=1")!important;background-position:35% center!important}
+ .hero-grid{min-height:640px!important;align-items:flex-start!important;justify-content:center!important}
+ .hero-copy{width:100%!important;max-width:100%!important;padding:30px 0!important}
+ .hero-inline-brand{width:min(100%,420px)!important;margin:0 auto 16px!important}
+ .header .brand-image-wrap{width:210px!important;flex-basis:210px!important}
+ .app-top-inner{flex-direction:column!important;align-items:stretch!important}
+ .app-top-actions{justify-content:center!important}
+}
