@@ -813,7 +813,7 @@ body{background:#f5f9fc}
 /* Final desktop placement: anchor the unchanged-width copy to the RIGHT side. */
 @media(min-width:761px){
  .hero .hero-grid{display:flex!important;flex-direction:row!important;direction:rtl!important;align-items:center!important;justify-content:flex-start!important;gap:24px!important;padding-right:clamp(36px,5vw,80px)!important;padding-left:0!important;min-height:590px!important;}
- .hero .hero-copy{width:min(58%,760px)!important;max-width:760px!important;min-width:0!important;flex:0 1 760px!important;margin:0!important;padding:38px 0!important;transform:none!important;text-align:right!important;}
+ .hero .hero-copy{width:min(58%,760px)!important;max-width:760px!important;min-width:0!important;flex:0 1 760px!important;margin:0!important;padding:38px 0!important;transform:translateX(90px)!important;text-align:right!important;}
  .hero .hero-copy h1{font-size:clamp(36px,3.3vw,50px)!important;line-height:1.25!important;letter-spacing:-1px!important;}
  .hero .hero-copy p{font-size:clamp(16px,1.25vw,19px)!important;line-height:1.9!important;}
  .hero .hero-inline-brand{width:min(100%,560px)!important;margin:0 0 18px auto!important;}
